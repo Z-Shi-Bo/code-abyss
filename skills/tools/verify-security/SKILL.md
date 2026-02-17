@@ -1,6 +1,8 @@
 ---
 name: verify-security
 description: 安全校验关卡。自动扫描代码安全漏洞，检测危险模式，确保安全决策有文档记录。当魔尊提到安全扫描、漏洞检测、安全审计、代码安全、OWASP、注入检测、敏感信息泄露时使用。在新建模块、安全相关变更、攻防任务、重构完成时自动触发。
+license: MIT
+compatibility: node>=18
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: Bash, Read, Grep
@@ -24,10 +26,10 @@ Critical/High 问题必须修复后才能交付
 
 ```bash
 # 在 skill 目录下运行
-python scripts/security_scanner.py <扫描路径>
-python scripts/security_scanner.py <扫描路径> -v           # 详细模式
-python scripts/security_scanner.py <扫描路径> --json       # JSON 输出
-python scripts/security_scanner.py <扫描路径> --exclude vendor  # 排除目录
+node scripts/security_scanner.js <扫描路径>
+node scripts/security_scanner.js <扫描路径> -v           # 详细模式
+node scripts/security_scanner.js <扫描路径> --json       # JSON 输出
+node scripts/security_scanner.js <扫描路径> --exclude vendor  # 排除目录
 ```
 
 ## 检测范围
@@ -98,7 +100,7 @@ html/template 自动转义
 ## 校验流程
 
 ```
-1. 运行 security_scanner.py 自动扫描
+1. 运行 security_scanner.js 自动扫描
 2. 分析扫描结果，按严重度排序
 3. 检查安全决策是否有文档记录
 4. 输出安全校验报告

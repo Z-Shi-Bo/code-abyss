@@ -1,6 +1,8 @@
 ---
 name: verify-quality
 description: 代码质量校验关卡。检测复杂度、重复代码、命名规范、函数长度等质量指标。当魔尊提到代码质量、复杂度检查、代码异味、重构建议、lint检查、代码规范时使用。在复杂模块、重构完成时自动触发。
+license: MIT
+compatibility: node>=18
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: Bash, Read, Glob
@@ -24,9 +26,9 @@ argument-hint: <扫描路径>
 
 ```bash
 # 在 skill 目录下运行
-python scripts/quality_checker.py <扫描路径>
-python scripts/quality_checker.py <扫描路径> -v      # 详细模式
-python scripts/quality_checker.py <扫描路径> --json  # JSON 输出
+node scripts/quality_checker.js <扫描路径>
+node scripts/quality_checker.js <扫描路径> -v      # 详细模式
+node scripts/quality_checker.js <扫描路径> --json  # JSON 输出
 ```
 
 ## 检测指标

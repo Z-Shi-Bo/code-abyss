@@ -1,6 +1,8 @@
 ---
 name: verify-change
 description: 变更校验关卡。分析代码变更，检测文档同步状态，评估变更影响范围。当魔尊提到变更检查、文档同步、代码审查、提交前检查、diff分析时使用。在设计级变更、重构完成时自动触发。
+license: MIT
+compatibility: node>=18
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: Bash, Read, Grep
@@ -24,11 +26,11 @@ argument-hint: [--mode working|staged|committed]
 
 ```bash
 # 在 skill 目录下运行
-python scripts/change_analyzer.py                    # 分析工作区变更（默认）
-python scripts/change_analyzer.py --mode staged      # 分析暂存区变更
-python scripts/change_analyzer.py --mode committed   # 分析已提交变更
-python scripts/change_analyzer.py -v                 # 详细模式
-python scripts/change_analyzer.py --json             # JSON 输出
+node scripts/change_analyzer.js                    # 分析工作区变更（默认）
+node scripts/change_analyzer.js --mode staged      # 分析暂存区变更
+node scripts/change_analyzer.js --mode committed   # 分析已提交变更
+node scripts/change_analyzer.js -v                 # 详细模式
+node scripts/change_analyzer.js --json             # JSON 输出
 ```
 
 ## 检测能力
@@ -107,7 +109,7 @@ python scripts/change_analyzer.py --json             # JSON 输出
 ## 校验流程
 
 ```
-1. 运行 change_analyzer.py 自动分析
+1. 运行 change_analyzer.js 自动分析
 2. 识别变更文件和受影响模块
 3. 检查文档同步状态
 4. 评估变更影响

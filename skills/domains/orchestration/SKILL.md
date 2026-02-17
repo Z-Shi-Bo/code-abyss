@@ -1,6 +1,7 @@
 ---
 name: orchestration
 description: 协同编排知识域。多Agent协同、任务分解、并行执行、冲突解决。当魔尊需要多Agent协作、任务编排、并行处理时使用。
+license: MIT
 user-invocable: true
 ---
 

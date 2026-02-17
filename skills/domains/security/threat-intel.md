@@ -318,5 +318,55 @@ misp.tag(event, 'misp-galaxy:mitre-attack-pattern="T1566"')
 | VirusTotal | 恶意软件分析 |
 | ATT&CK Navigator | TTP 可视化 |
 
+## 威胁建模
+
+### 建模流程
+```
+资产识别 → 架构分解 → 威胁枚举 → 风险评级 → 缓解措施 → 验证
+```
+
+### STRIDE 速查
+| 威胁 | 含义 | 缓解 |
+|------|------|------|
+| Spoofing | 身份伪造 | 强认证、MFA |
+| Tampering | 数据篡改 | 完整性校验、签名 |
+| Repudiation | 否认操作 | 审计日志、数字签名 |
+| Info Disclosure | 信息泄露 | 加密、访问控制 |
+| DoS | 拒绝服务 | 限流、冗余 |
+| EoP | 权限提升 | 最小权限、输入验证 |
+
+### PASTA 七阶段
+```
+定义目标 → 技术范围 → 应用分解 → 威胁分析 → 漏洞分析 → 攻击建模 → 风险管理
+```
+
+### 攻击树建模
+```yaml
+# OR节点: 任一子成功即成功, 风险=1-∏(1-Pi)
+# AND节点: 全部子成功才成功, 风险=∏Pi
+# 每节点属性: goal, cost, skill, detection, success_rate, mitigations
+```
+
+### 风险矩阵
+```
+>=15 严重(立即) / >=10 高(优先) / >=6 中(计划) / <6 低(监控)
+风险分 = 可能性(1-5) x 影响(1-5)
+```
+
+### 威胁建模检查清单
+```yaml
+准备: 识别关键资产 + 定义安全目标 + 组建跨职能团队
+建模: 数据流图+信任边界 + STRIDE/PASTA枚举 + 风险评级 + 缓解措施
+验证: 安全测试 + 定期更新模型 + 跟踪缓解实施 + 事件后复盘
+```
+
+### 工具
+| 工具 | 特点 |
+|------|------|
+| Microsoft Threat Modeling Tool | STRIDE 自动化 |
+| OWASP Threat Dragon | 开源、DFD 支持 |
+| Threagile | CLI、代码化建模 |
+| PyTM | Python 编程式建模 |
+
 ---
 

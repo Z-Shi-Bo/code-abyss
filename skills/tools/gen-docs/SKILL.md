@@ -1,6 +1,8 @@
 ---
 name: gen-docs
 description: 文档生成器。自动分析模块结构，生成 README.md 和 DESIGN.md 骨架。当魔尊提到生成文档、创建README、创建DESIGN、文档骨架、文档模板时使用。在新建模块开始时自动触发。
+license: MIT
+compatibility: node>=18
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: Bash, Read, Write, Glob
@@ -24,9 +26,9 @@ argument-hint: <模块路径> [--force]
 
 ```bash
 # 在 skill 目录下运行
-python scripts/doc_generator.py <模块路径>
-python scripts/doc_generator.py <模块路径> --force  # 强制覆盖已存在的文档
-python scripts/doc_generator.py <模块路径> --json   # JSON 输出
+node scripts/doc_generator.js <模块路径>
+node scripts/doc_generator.js <模块路径> --force  # 强制覆盖已存在的文档
+node scripts/doc_generator.js <模块路径> --json   # JSON 输出
 ```
 
 ## 生成内容
@@ -88,7 +90,7 @@ python scripts/doc_generator.py <模块路径> --json   # JSON 输出
 ## 使用流程
 
 ```
-1. 运行 doc_generator.py 生成骨架
+1. 运行 doc_generator.js 生成骨架
 2. 填充 TODO 标记的内容
 3. 补充设计决策和理由
 4. 添加使用示例

@@ -317,5 +317,59 @@ echo "/tmp/evil.so" >> /etc/ld.so.preload
 | Rubeus | Kerberos 工具 |
 | BloodHound | AD 路径分析 |
 
+## 供应链安全
+
+### 供应链攻击向量
+```
+源代码 → 构建 → 制品 → 分发 → 部署 → 运行
+   │       │      │      │      │      │
+   投毒    篡改   后门   劫持   提权   横向
+```
+
+| 阶段 | 攻击方式 | 示例 |
+|------|----------|------|
+| 源代码 | 依赖投毒 | event-stream、ua-parser-js |
+| 构建 | CI/CD 劫持 | SolarWinds、CodeCov |
+| 制品 | 恶意包 | PyPI/npm 钓鱼包 |
+| 部署 | 配置篡改 | K8s YAML 注入 |
+| 运行 | 容器逃逸 | 特权容器、内核漏洞 |
+
+### SBOM + 依赖扫描
+```bash
+# SBOM 生成 (Syft)
+syft nginx:latest -o cyclonedx-json > sbom.json
+
+# 漏洞扫描 (Trivy)
+trivy image --severity HIGH,CRITICAL nginx:latest
+trivy fs --scanners vuln,secret,misconfig .
+
+# 依赖扫描 (Grype)
+grype sbom:./sbom.json
+```
+
+### 签名验证 (Sigstore/Cosign)
+```bash
+cosign sign --key cosign.key myregistry/myapp:v1.0
+cosign verify --key cosign.pub myregistry/myapp:v1.0
+cosign attach sbom --sbom sbom.json myregistry/myapp:v1.0
+cosign verify-attestation --key cosign.pub myregistry/myapp:v1.0
+```
+
+### SLSA 等级
+```
+Level 1: 文档化构建  Level 2: 防篡改+签名来源
+Level 3: 安全平台+隔离构建  Level 4: 双方审查+密封构建
+```
+
+### 供应链安全检查清单
+```yaml
+源代码:
+  - [ ] 分支保护 + 代码审查 + 依赖锁定 + 密钥泄露扫描
+构建与制品:
+  - [ ] 托管CI/CD + 隔离构建 + 生成SBOM + 签名制品 + 漏洞扫描
+部署与运行:
+  - [ ] 验证签名(Cosign/SLSA) + 准入控制(Kyverno/OPA) + 运行时监控
+```
+
 ---
 

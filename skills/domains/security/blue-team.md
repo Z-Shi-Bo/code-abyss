@@ -375,5 +375,62 @@ WHERE command LIKE '%powershell%' OR command LIKE '%cmd%'
 | TheHive | 事件管理 |
 | MISP | 威胁情报 |
 
+## 密钥管理
+
+### 密钥生命周期
+```
+生成 → 存储 → 分发 → 使用 → 轮转 → 撤销 → 销毁
+```
+
+### 核心工具
+| 工具 | 类型 | 特点 |
+|------|------|------|
+| HashiCorp Vault | 平台 | 动态密钥、AppRole、多后端 |
+| AWS KMS | 云服务 | 托管密钥、信封加密、自动轮转 |
+| AWS Secrets Manager | 云服务 | 自动轮转、Lambda集成 |
+| Sealed Secrets | K8s | GitOps 友好、加密存储 |
+| External Secrets | K8s | 多后端同步（Vault/AWS/GCP） |
+
+### 密钥管理检查清单
+```yaml
+生成与存储:
+  - [ ] 加密强随机数生成器
+  - [ ] 密钥长度符合标准（AES-256, RSA-2048+）
+  - [ ] 集中存储在密钥管理系统 + 静态加密 + 访问控制
+
+分发与使用:
+  - [ ] 最小权限 + 短期凭证优先（动态密钥）
+  - [ ] 禁止硬编码，使用环境变量或挂载卷
+  - [ ] 传输加密（TLS）
+
+轮转与撤销:
+  - [ ] 定期自动轮转（P0年度/P1季度/P2月度/P3小时）
+  - [ ] 支持紧急撤销 + 轮转后验证 + 审计日志
+
+监控:
+  - [ ] 记录所有密钥访问 + 异常检测告警 + 定期合规审计
+```
+
+### Vault 关键操作速查
+```bash
+# KV 读写
+vault kv put secret/myapp/config db_password="xxx" api_key="yyy"
+vault kv get -field=db_password secret/myapp/config
+
+# 动态数据库凭证
+vault read database/creds/readonly
+
+# AppRole 登录
+vault write auth/approle/login role_id="<id>" secret_id="<id>"
+```
+
+### 密钥分类策略
+| 级别 | 类型 | 轮转周期 | 存储 |
+|------|------|----------|------|
+| P0 | 根密钥、主密钥 | 年度 | HSM |
+| P1 | 数据加密密钥 | 季度 | Vault |
+| P2 | API 密钥 | 月度 | Secrets Manager |
+| P3 | 会话令牌 | 小时 | Redis |
+
 ---
 

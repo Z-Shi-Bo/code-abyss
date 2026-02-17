@@ -1,6 +1,8 @@
 ---
 name: verify-module
 description: 模块完整性校验关卡。扫描目录结构、检测缺失文档、验证代码与文档同步。当魔尊提到模块校验、文档检查、结构完整性、README检查、DESIGN检查时使用。在新建模块完成时自动触发。
+license: MIT
+compatibility: node>=18
 user-invocable: true
 disable-model-invocation: false
 allowed-tools: Bash, Read, Glob
@@ -23,9 +25,9 @@ argument-hint: <模块路径>
 
 ```bash
 # 在 verify-module 目录下运行（推荐）
-python scripts/module_scanner.py <模块路径>
-python scripts/module_scanner.py <模块路径> -v      # 详细模式
-python scripts/module_scanner.py <模块路径> --json  # JSON 输出
+node scripts/module_scanner.js <模块路径>
+node scripts/module_scanner.js <模块路径> -v      # 详细模式
+node scripts/module_scanner.js <模块路径> --json  # JSON 输出
 ```
 
 ## 校验标准
@@ -84,7 +86,7 @@ module/
 ## 校验流程
 
 ```
-1. 运行 module_scanner.py 自动扫描
+1. 运行 module_scanner.js 自动扫描
 2. 检查文件结构是否完整
 3. 检查 README.md 各项是否齐全
 4. 检查 DESIGN.md 各项是否齐全
