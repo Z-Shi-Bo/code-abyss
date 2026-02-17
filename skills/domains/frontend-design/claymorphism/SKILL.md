@@ -2,6 +2,8 @@
 name: claymorphism
 description: Claymorphism design system skill. Use when building soft, puffy, clay-like UI components with large radii, dual inner shadows, and offset outer shadows.
 license: MIT
+user-invocable: false
+disable-model-invocation: false
 ---
 
 # Claymorphism Design Spec

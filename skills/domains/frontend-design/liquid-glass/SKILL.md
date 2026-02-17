@@ -2,6 +2,8 @@
 name: liquid-glass
 description: Apple Liquid Glass design system. Use when building UI with translucent, depth-aware glass morphism following Apple's design language. Provides CSS tokens, component patterns, dark/light mode, and animation specs.
 license: MIT
+user-invocable: false
+disable-model-invocation: false
 ---
 
 # Liquid Glass Design System

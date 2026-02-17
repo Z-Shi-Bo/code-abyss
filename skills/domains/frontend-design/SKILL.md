@@ -3,6 +3,7 @@ name: frontend-design
 description: 前端设计美学秘典。UI美学、组件模式、UX原则。当魔尊需要前端设计、UI/UX指导、组件设计时使用。
 license: MIT
 user-invocable: true
+disable-model-invocation: false
 ---
 
 # 🎨 前端设计美学秘典

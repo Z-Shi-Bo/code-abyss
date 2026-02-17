@@ -2,6 +2,8 @@
 name: security
 description: 攻防秘典索引。渗透测试、代码审计、红队攻击、蓝队防御、威胁情报、漏洞研究。当魔尊提到安全、渗透、攻防、红队、蓝队、漏洞时路由到此。
 license: MIT
+user-invocable: false
+disable-model-invocation: false
 ---
 
 # 攻防秘典 · 三脉道统

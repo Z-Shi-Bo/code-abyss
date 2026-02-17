@@ -2,6 +2,8 @@
 name: neubrutalism
 description: Neubrutalism design system skill. Use when building bold UI with thick borders, offset solid shadows, high saturation colors, and minimal border radius.
 license: MIT
+user-invocable: false
+disable-model-invocation: false
 ---
 
 # Neubrutalism Design Spec
