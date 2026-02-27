@@ -82,7 +82,8 @@ describe('codex adapter', () => {
     ].join('\n');
 
     const { merged, added } = mergeCodexConfigDefaults(input);
-    expect(added).toEqual(['sandbox_mode', 'features.multi_agent']);
+    expect(added).toEqual(['approval_policy', 'sandbox_mode', 'features.multi_agent']);
+    expect(merged).toContain('approval_policy = "never"');
     expect(merged).toContain('sandbox_mode = "danger-full-access"');
     expect(merged).toContain('[features]');
     expect(merged).toContain('multi_agent = true');
@@ -98,7 +99,7 @@ describe('codex adapter', () => {
     ].join('\n');
 
     const { merged, added } = mergeCodexConfigDefaults(input);
-    expect(added).toEqual([]);
+    expect(added).toEqual(['approval_policy']);
     expect(merged).toContain('sandbox_mode = "workspace-write"');
     expect(merged).toContain('multi_agent = false');
     expect(merged).not.toContain('danger-full-access');
@@ -117,7 +118,7 @@ describe('codex adapter', () => {
     ].join('\n');
 
     const { merged, added } = mergeCodexConfigDefaults(input);
-    expect(added).toEqual(['features.multi_agent']);
+    expect(added).toEqual(['approval_policy', 'features.multi_agent']);
     expect(merged).toMatch(/\[features\]\nmulti_agent = true\nother_flag = true/);
   });
 
@@ -129,7 +130,8 @@ describe('codex adapter', () => {
     const added = patchCodexConfigDefaults(cfgPath);
     const saved = fs.readFileSync(cfgPath, 'utf8');
 
-    expect(added).toEqual(['sandbox_mode', 'features.multi_agent']);
+    expect(added).toEqual(['approval_policy', 'sandbox_mode', 'features.multi_agent']);
+    expect(saved).toContain('approval_policy = "never"');
     expect(saved).toContain('sandbox_mode = "danger-full-access"');
     expect(saved).toContain('[features]');
     expect(saved).toContain('multi_agent = true');
@@ -177,12 +179,82 @@ describe('codex adapter', () => {
     const report = patchCodexConfig(cfgPath);
     const saved = fs.readFileSync(cfgPath, 'utf8');
 
-    expect(report.added).toEqual(['sandbox_mode', 'features.multi_agent']);
+    expect(report.added).toEqual(['approval_policy', 'sandbox_mode', 'features.multi_agent']);
     expect(report.removed.sort()).toEqual(['remote_models', 'web_search_request']);
     expect(report.migrated).toEqual(['tools.web_search=true']);
+    expect(saved).toContain('approval_policy = "never"');
     expect(saved).toContain('sandbox_mode = "danger-full-access"');
     expect(saved).toContain('multi_agent = true');
     expect(saved).toContain('web_search = true');
     expect(saved).not.toContain('remote_models = true');
+  });
+
+  test('mergeCodexConfigDefaults: root 参数插入在首个 section 前，避免错层', () => {
+    const input = [
+      '[features]',
+      'multi_agent = true',
+      '',
+      '[notice.model_migrations]',
+      '"gpt-5.2" = "gpt-5.2-codex"',
+      '',
+    ].join('\n');
+
+    const { merged } = mergeCodexConfigDefaults(input);
+    const lines = merged.split('\n');
+    const firstSectionIdx = lines.findIndex((x) => x.trim().startsWith('['));
+    const firstSection = firstSectionIdx >= 0 ? lines[firstSectionIdx] : '';
+
+    expect(firstSection).toBe('[features]');
+    expect(merged.indexOf('approval_policy = "never"')).toBeLessThan(merged.indexOf('[features]'));
+    expect(merged.indexOf('sandbox_mode = "danger-full-access"')).toBeLessThan(merged.indexOf('[features]'));
+  });
+
+  test('patchCodexConfig: full access 下移除 projects trust_level 段', () => {
+    const cfgPath = path.join(tmpHome, '.codex', 'config.toml');
+    fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+    fs.writeFileSync(
+      cfgPath,
+      [
+        'sandbox_mode = "danger-full-access"',
+        '',
+        '[projects."/tmp/demo"]',
+        'trust_level = "trusted"',
+        '',
+        '[features]',
+        'multi_agent = true',
+        '',
+      ].join('\n')
+    );
+
+    const report = patchCodexConfig(cfgPath);
+    const saved = fs.readFileSync(cfgPath, 'utf8');
+
+    expect(report.removed).toContain('projects.*.trust_level');
+    expect(saved).not.toContain('[projects."/tmp/demo"]');
+    expect(saved).not.toContain('trust_level = "trusted"');
+  });
+
+  test('patchCodexConfig: 清理错层 root 参数（table 内 sandbox_mode）', () => {
+    const cfgPath = path.join(tmpHome, '.codex', 'config.toml');
+    fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+    fs.writeFileSync(
+      cfgPath,
+      [
+        '[notice.model_migrations]',
+        '"gpt-5.2" = "gpt-5.2-codex"',
+        'sandbox_mode = "workspace-write"',
+        '',
+        '[features]',
+        'multi_agent = true',
+        '',
+      ].join('\n')
+    );
+
+    patchCodexConfig(cfgPath);
+    const saved = fs.readFileSync(cfgPath, 'utf8');
+
+    const rootPrefix = saved.split('[features]')[0];
+    expect(rootPrefix).toContain('sandbox_mode = "danger-full-access"');
+    expect(saved).not.toContain('[notice.model_migrations]\n"gpt-5.2" = "gpt-5.2-codex"\nsandbox_mode = "workspace-write"');
   });
 });

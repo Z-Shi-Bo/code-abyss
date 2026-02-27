@@ -214,7 +214,7 @@ multi_agent = true
 ### 兼容性说明
 
 - 模板已对齐新版 Codex 配置风格：`[tools].web_search` 与 `[features].multi_agent`
-- 若你本地已有旧配置，安装器不会强制覆盖；会自动做三件事：补齐缺失默认项、清理 removed feature、将 deprecated `web_search_*` 迁移为 `[tools].web_search`
+- 若你本地已有旧配置，安装器不会强制覆盖；会自动补齐 root 默认项（正确写入首段）、清理 removed feature、迁移 deprecated `web_search_*` 到 `[tools].web_search`，并在 `danger-full-access` 下清理 `projects.*.trust_level`
 - 建议在升级后执行一次 `codex --help` / 启动自检，确认无 deprecation warning
 
 ---
