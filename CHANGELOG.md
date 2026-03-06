@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-03-06
+## [1.8.0] - 2026-03-06
 
 ### Added
 - Codex 安装流程现在会从 `user-invocable` skills 自动生成 `~/.codex/prompts/*.md`，把 `verify-*` / `gen-docs` 等工具对齐到官方 custom prompts 入口。
@@ -19,7 +19,7 @@ All notable changes to this project will be documented in this file.
 ### Verification
 - Jest: **8 suites / 120 tests passed**
 - Targeted regression: `npm test -- --runInBand test/install.test.js test/codex.test.js`
-- Package smoke: `npm pack` + `npx --package ./code-abyss-1.7.7.tgz code-abyss --target codex -y` + uninstall pass
+- Package smoke: `npm pack` + `npx --package ./code-abyss-1.8.0.tgz code-abyss --target codex -y` + uninstall pass
 
 ## [1.7.7] - 2026-02-27
 
