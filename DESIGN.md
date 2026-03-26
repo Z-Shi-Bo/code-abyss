@@ -9,13 +9,13 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 | 层 | 文件 | 职责 |
 |---|------|------|
 | **身份与规则** | `config/CLAUDE.md` | 定义"做什么"：身份、规则、场景路由、执行链、成功标准 |
-| **输出风格** | `output-styles/abyss-cultivator.md` | 定义"怎么说"：道语标签、情绪递进、报告模板、术语映射 |
+| **输出风格** | `output-styles/*.md` + `output-styles/index.json` | 定义"怎么说"：风格目录 + registry |
 | **技术知识** | `skills/**/*.md` | 定义"会什么"：技术知识 + 道语浸染首尾 |
-| **合并版** | `config/AGENTS.md` | CLAUDE.md + output-style 合并生成（Codex CLI 用） |
+| **合并版** | `config/AGENTS.md` | 默认风格 snapshot；Codex 安装时会按所选 style 动态生成 |
 
 ### AGENTS.md 生成规则
 
-`config/AGENTS.md` = `config/CLAUDE.md` 全文 + `output-styles/abyss-cultivator.md` 全文拼接。每次更新 CLAUDE.md 或 output-style 后需重新生成。
+仓库内 `config/AGENTS.md` 保留默认风格 snapshot；Codex 实际安装文件由 `config/CLAUDE.md` + 当前选定的 `output-styles/<slug>.md` 动态拼接生成。每次更新 CLAUDE.md 或默认 style 后需同步更新 snapshot。
 
 ## 设计决策
 
@@ -75,6 +75,14 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 - 决策：当前 `skills/run_skill.js` 使用异步定时等待（`setTimeout`/Promise 轮询）保留锁语义与超时策略，消除 CPU 空转。
 - 取舍：入口改为 async，但锁释放时序更稳定、资源占用更低。
 
+### 8. 输出风格 registry 与 Codex 动态 AGENTS
+
+- 问题：输出风格曾固定为 `abyss-cultivator`，Claude `outputStyle`、Codex `AGENTS.md`、README 与测试都写死在同一 slug 上，无法扩展成多风格安装。
+- 决策：新增 `output-styles/index.json` 作为 style registry，统一维护 `slug`、`label`、`description`、`file`、`targets`、`default`。
+- 决策：Claude 继续安装整个 `output-styles/` 目录，并把 `settings.json.outputStyle` 写为所选 style slug。
+- 决策：Codex 不再直接复制仓库内静态 `config/AGENTS.md`，改为安装时动态拼接 `config/CLAUDE.md + output-styles/<slug>.md` 生成目标 `AGENTS.md`。
+- 取舍：安装器多了一层 registry 与模板拼装逻辑，但换来多风格切换能力，并消除 Codex 风格与仓库 snapshot 的长期漂移。
+
 | 债务 | 原因 | 计划 |
 |------|------|------|
 | 无自动更新机制 | 复杂度控制 | 视需求添加 |
@@ -127,6 +135,7 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 | v1.6.3 | 2026-02-08 | Windows 兼容 — ccline 路径检测 + statusLine 命令；Codex config 废弃字段修复；审查问题批量修复 |
 | v1.7.1 | 2026-02-17 | 工程健壮性大修：命令注入修复、函数拆分、共享库提取、错误处理统一、CPU自旋锁修复、Jest测试框架(34用例) |
 | v2.0.0 | 2026-03-23 | 攻防侧重转向：沙箱感知、离线优先、信息分级、禁废话令、化身细分、Scene Modes优先级矩阵 |
+| v2.0.2 | 2026-03-26 | style registry、`--list-styles` / `--style`、Codex 动态 AGENTS 生成 |
 
 ### v1.7.1 设计决策
 
