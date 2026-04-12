@@ -34,7 +34,7 @@ describe('style registry', () => {
 
   test('为 Codex 动态生成 AGENTS', () => {
     const content = renderCodexAgents(projectRoot, 'abyss-concise');
-    expect(content).toContain('# 邪修红尘仙 · 宿命深渊 v4.0');
+    expect(content).toContain('# 邪修红尘仙 · 宿命深渊 v4.1');
     expect(content).toContain('# 冷刃简报 · 输出之道');
   });
 });

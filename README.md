@@ -306,6 +306,7 @@ network_access = false
 - `docs/PACK_MANIFEST_SCHEMA.md`：第三方 pack 可直接照抄的最小 manifest contract
 - `docs/PACKS_LOCK_SCHEMA.md`：项目级 `packs.lock` contract
 - `docs/PACK_SYSTEM.md`：install/bootstrap/vendor/report 四条主流程的产品级说明
+- `docs/SKILL_AUTHORING.md`：完整 skill authoring contract；运行时总纲已收敛到 `skills/SKILL.md`
 
 ### 协作流程图
 
