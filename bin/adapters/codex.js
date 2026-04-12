@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getPackHostFiles } = require(path.join(__dirname, '..', 'lib', 'pack-registry.js'));
+const { rmSafe } = require(path.join(__dirname, '..', 'lib', 'utils.js'));
 
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
@@ -447,6 +448,27 @@ function getCodexCoreFiles() {
   return getPackHostFiles(PROJECT_ROOT, 'abyss', 'codex');
 }
 
+function cleanupLegacyCodexRuntime({
+  HOME,
+  info = () => {},
+}) {
+  const legacyTargets = [
+    { relPath: 'AGENTS.md', label: 'AGENTS.md' },
+    { relPath: 'prompts', label: 'prompts/' },
+  ];
+
+  const removed = [];
+  legacyTargets.forEach(({ relPath, label }) => {
+    const targetPath = path.join(HOME, '.codex', relPath);
+    if (!fs.existsSync(targetPath)) return;
+    rmSafe(targetPath);
+    removed.push(label);
+    info(`移除 legacy ${label}（Codex 已改为 skills-only）`);
+  });
+
+  return removed;
+}
+
 async function postCodex({
   autoYes,
   HOME,
@@ -503,6 +525,7 @@ async function postCodex({
 
 module.exports = {
   cleanupLegacyCodexConfig,
+  cleanupLegacyCodexRuntime,
   mergeCodexConfigDefaults,
   patchCodexConfig,
   patchCodexConfigDefaults,

@@ -46,6 +46,7 @@ const { installGstackGeminiPack } = require(path.join(__dirname, 'lib', 'gstack-
 
 const { installGstackCodexPack } = require(path.join(__dirname, 'lib', 'gstack-codex.js'));
 const {
+  cleanupLegacyCodexRuntime,
   detectCodexAuth: detectCodexAuthImpl,
   getCodexCoreFiles,
   postCodex: postCodexFlow,
@@ -596,7 +597,12 @@ function installCore(tgt, selectedStyle, packPlan) {
     ? `${c.cyn(resolveManagedRootDir(tgt, 'codex'))} + ${c.cyn(resolveManagedRootDir(tgt, 'agents'))}`
     : c.cyn(targetDir);
   step(1, 3, `安装核心文件 → ${installSummary}`);
+  rmSafe(backupDir);
   fs.mkdirSync(backupDir, { recursive: true });
+
+  if (tgt === 'codex') {
+    cleanupLegacyCodexRuntime({ HOME, info });
+  }
 
   const filesToInstall = tgt === 'codex'
     ? getCodexCoreFiles()

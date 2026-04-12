@@ -6,6 +6,7 @@ const path = require('path');
 
 const {
   cleanupLegacyCodexConfig,
+  cleanupLegacyCodexRuntime,
   detectCodexAuth,
   getCodexCoreFiles,
   mergeCodexConfigDefaults,
@@ -71,6 +72,25 @@ describe('codex adapter', () => {
       { src: 'skills', dest: 'skills', root: 'agents' },
       { src: 'bin/lib', dest: 'bin/lib', root: 'agents' },
     ]);
+  });
+
+  test('cleanupLegacyCodexRuntime: 清理旧 AGENTS 与 prompts 残留', () => {
+    const codexDir = path.join(tmpHome, '.codex');
+    fs.mkdirSync(path.join(codexDir, 'prompts'), { recursive: true });
+    fs.writeFileSync(path.join(codexDir, 'AGENTS.md'), '# old\n');
+    fs.writeFileSync(path.join(codexDir, 'prompts', 'old.md'), 'legacy\n');
+
+    const infos = [];
+    const removed = cleanupLegacyCodexRuntime({
+      HOME: tmpHome,
+      info: (msg) => infos.push(msg),
+    });
+
+    expect(removed.sort()).toEqual(['AGENTS.md', 'prompts/']);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
+    expect(infos.join('\n')).toContain('AGENTS.md');
+    expect(infos.join('\n')).toContain('prompts/');
   });
 
   test('mergeCodexConfigDefaults: 缺失项自动补全', () => {

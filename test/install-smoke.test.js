@@ -110,6 +110,21 @@ describe('codex install smoke', () => {
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
   });
 
+  test('安装 Codex 时会清理旧 AGENTS.md 与 prompts 残留', () => {
+    const codexDir = path.join(tmpHome, '.codex');
+    fs.mkdirSync(path.join(codexDir, 'prompts'), { recursive: true });
+    fs.writeFileSync(path.join(codexDir, 'AGENTS.md'), '# legacy\n');
+    fs.writeFileSync(path.join(codexDir, 'prompts', 'old.md'), 'legacy\n');
+
+    const result = runInstall(['--target', 'codex', '-y']);
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
+    expect(result.stdout).toContain('移除 legacy AGENTS.md');
+    expect(result.stdout).toContain('移除 legacy prompts/');
+  });
+
   test('安装 Codex 时忽略 --style，不再生成 AGENTS.md', () => {
     const result = runInstall(['--target', 'codex', '--style', 'abyss-concise', '-y']);
     const codexDir = path.join(tmpHome, '.codex');

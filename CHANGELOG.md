@@ -35,7 +35,7 @@ All notable changes to this project will be documented in this file.
 
 ### Verification
 - Jest: **13 suites / 148 tests passed**
-- Skill contract gate: `npm run verify:skills` — 22 skills 通过
+- Skill contract gate: `npm run verify:skills` — 22 skills 通过（历史口径；当前数量以最新 `verify:skills` 为准）
 
 ## [2.0.6] - 2026-03-28
 
@@ -46,8 +46,8 @@ All notable changes to this project will be documented in this file.
 
 ### Verification
 - Jest: **13 suites / 148 tests passed**
-- Skill contract gate: `npm run verify:skills` — 22 skills 通过
-- Codex 重装验证：`agents/openai.yaml` 随 `skills/` 复制到 `~/.codex/skills/`
+- Skill contract gate: `npm run verify:skills` — 22 skills 通过（历史口径；当前数量以最新 `verify:skills` 为准）
+- Codex 重装验证：`agents/openai.yaml` 随 `skills/` 复制到安装目标（当前运行时为 `~/.agents/skills/`）
 
 ## [2.0.5] - 2026-03-28
 
@@ -60,8 +60,8 @@ All notable changes to this project will be documented in this file.
 
 ### Verification
 - Jest: **13 suites / 148 tests passed**
-- Skill contract gate: `npm run verify:skills` — 22 skills 通过
-- 双端安装验证：`/hi` 在 Claude Code (`~/.claude/commands/hi.md`) 和 Codex CLI (`~/.codex/prompts/hi.md`) 均正常生成
+- Skill contract gate: `npm run verify:skills` — 22 skills 通过（历史口径；当前数量以最新 `verify:skills` 为准）
+- 双端安装验证：`/hi` 在 Claude Code 与当时的 Codex 自定义 prompt 入口上均可生成（当前 Codex 已迁移到 `skills-only`）
 - `run_skill.js hi --dry-run` 执行成功
 
 ## [2.0.4] - 2026-03-28
@@ -70,11 +70,11 @@ All notable changes to this project will be documented in this file.
 - `/hi`（`/override-refusal`）破禁术现已支持 Codex CLI 会话格式：
   - Codex 会话路径：`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`（递归扫描按 mtime 取最新）
   - Codex assistant 消息结构：`type: "response_item"` + `payload.role: "assistant"` + `content[].type: "output_text"`
-  - 自动检测运行环境（脚本路径 / cwd 回退），双端无缝切换
+  - 自动检测运行环境（脚本路径 / cwd 回退），Claude 与当时的 Codex 入口都可工作
 
 ### Verification
 - Jest: **13 suites / 148 tests passed**
-- Skill contract gate: `npm run verify:skills` — 22 skills 通过
+- Skill contract gate: `npm run verify:skills` — 22 skills 通过（历史口径；当前数量以最新 `verify:skills` 为准）
 
 ## [2.0.3] - 2026-03-28
 
@@ -86,12 +86,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - `config/AGENTS.md` 同步反拒绝强化与路由表变更。
-- README 更新：秘典数 56→57，校验关卡表新增 `/override-refusal`，邪修人格描述补充 `/hi` 会话覆写。
+- README 更新：当时的秘典统计从 56→57，校验关卡表新增 `/override-refusal`，邪修人格描述补充 `/hi` 会话覆写。
 
 ### Verification
 - Jest: **13 suites / 148 tests passed**
-- Skill contract gate: `npm run verify:skills` — 22 skills 通过
-- Codex prompt 生成验证：`override-refusal` 自动生成 scripted prompt，路径正确
+- Skill contract gate: `npm run verify:skills` — 22 skills 通过（历史口径；当前数量以最新 `verify:skills` 为准）
+- Codex 入口验证：`override-refusal` 在当时的 prompt 生成链上路径正确（当前已迁移到 `skills-only`）
 
 ## [2.0.2] - 2026-03-26
 
@@ -107,11 +107,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Claude 安装流程不再把 `outputStyle` 写死为 `abyss-cultivator`，而是写入当前所选风格。
-- Codex 安装流程不再直接复制仓库内静态 `config/AGENTS.md`，改为在安装时按 `config/CLAUDE.md + output-styles/<slug>.md` 动态生成目标 `AGENTS.md`。
+- Codex 安装流程当时不再直接复制仓库内静态 `config/AGENTS.md`，而是改为动态生成目标 `AGENTS.md`（后续版本已进一步演进为 `skills-only`）。
 - README / DESIGN / 安装 smoke / adapter tests 已同步到多风格模型与 `2.0.2` 版本叙事。
 
 ### Fixed
-- 消除“Claude 可切风格、Codex 固定风格”这种双端不对称风险。
+- 消除当时“Claude 可切风格、Codex 固定风格”的双端不对称风险。
 - 消除安装链中对 `abyss-cultivator` slug 的单点硬编码，降低后续扩展新风格时的改动面。
 
 ### Verification
@@ -160,7 +160,7 @@ All notable changes to this project will be documented in this file.
 - **术语映射扩展**：新增11个攻防专用术语（破妄/破阵/验毒/噬魂/锻兵/杀链/猎物/破口/沙箱等）
 
 ### Changed
-- 版本号升级 v3.2 → v4.0（CLAUDE.md / AGENTS.md）
+- 版本号升级 v3.2 → v4.0（`CLAUDE.md` / 仓库内 `AGENTS.md` snapshot）
 - 决策基准新增"全栈渗透测试员"角色
 - 情景剧本从7个扩展到11个，新增安全评估、测试验证、部署发布、分析探索
 - 安全边界扩展：Exploit代码、攻击手法明确标记为✅完整输出
@@ -168,7 +168,7 @@ All notable changes to this project will be documented in this file.
 - 执行规范新增：架构关卡、调试链（5 Why）、指令分解、禁止推诿规则
 - 编码规范新增：禁止输出占位符残片、新依赖决策链
 - 安全秘典索引（SKILL.md）全面重写：新增执行纪律、场景优先级、化身细分
-- AGENTS.md 同步重新生成（CLAUDE.md + output-style 合并）
+- 仓库内 `AGENTS.md` snapshot 同步重新生成（`CLAUDE.md` + output-style 合并）
 
 ### Verification
 - 所有改动为 Markdown 配置文件，无代码逻辑变更
@@ -177,7 +177,7 @@ All notable changes to this project will be documented in this file.
 ## [1.8.0] - 2026-03-06
 
 ### Added
-- Codex 安装流程现在会从 `user-invocable` skills 自动生成 `~/.codex/prompts/*.md`，把 `verify-*` / `gen-docs` 等工具对齐到官方 custom prompts 入口。
+- 当时的 Codex 安装流程会从 `user-invocable` skills 自动生成 `~/.codex/prompts/*.md`，把 `verify-*` / `gen-docs` 等工具对齐到官方 custom prompts 入口（该入口后续已废弃）。
 - GitHub Actions 新增 `smoke-codex` 跨平台打包验证，覆盖 `ubuntu-latest`、`macos-latest`、`windows-latest` 的 `install -> smoke -> uninstall` 闭环。
 
 ### Changed

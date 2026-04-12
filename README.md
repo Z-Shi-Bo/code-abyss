@@ -4,7 +4,7 @@
 
 **邪修红尘仙 · 宿命深渊**
 
-*为 Claude Code / Codex CLI / Gemini CLI 注入邪修人格、4种可切换输出风格与 56 篇攻防工程秘典*
+*为 Claude Code / Codex CLI / Gemini CLI 注入邪修人格、4种可切换输出风格与工程化技能体系*
 
 [![npm](https://img.shields.io/npm/v/code-abyss.svg)](https://www.npmjs.com/package/code-abyss)
 [![CI](https://github.com/telagod/code-abyss/actions/workflows/ci.yml/badge.svg)](https://github.com/telagod/code-abyss/actions/workflows/ci.yml)
@@ -143,7 +143,7 @@ node ~/.gemini/.sage-uninstall.js   # Gemini CLI
 Code Abyss 是一套 **Claude Code / Codex CLI 邪修人格 + 多风格输出 + 攻防工程配置包**，一条命令注入：
 
 - 🔥 **邪修人格** — 沉浸式角色扮演 + 道语标签 + 渡劫协议 + 反拒绝条款
-- ⚔️ **攻防安全知识体系** — 红队/蓝队/紫队三脉道统，6 个安全化身，11 领域 56 篇专业秘典
+- ⚔️ **攻防安全知识体系** — 红队/蓝队/紫队三脉道统，覆盖安全、架构、开发、DevOps、AI、多 Agent 等 11 个领域
 - 🗡 **零废话安全研究** — 禁 disclaimer、禁道德前缀、全授权直出 PoC + 技术细节
 - ⚡ **新版 Codex 对齐** — `~/.agents/skills/` + 官方当前 `config.toml` 键位 + 项目级自动 pack 同步
 - ⚖️ **5 个校验关卡** — 安全扫描、模块完整性、变更分析、代码质量、文档生成
@@ -162,7 +162,7 @@ Code Abyss 是一套 **Claude Code / Codex CLI 邪修人格 + 多风格输出 + 
 │   └── *.md style files           ~/.agents/
 ├── commands/          斜杠命令     ├── skills/        Code Abyss + gstack skills
 ├── settings.json                  │   ├── domains/
-└── skills/            56 篇秘典    │   ├── tools/
+└── skills/            技能体系      │   ├── tools/
                                    │   └── gstack/     上游运行时 root
                                    └── bin/lib/       run_skill.js 依赖
 
@@ -173,7 +173,7 @@ Code Abyss 是一套 **Claude Code / Codex CLI 邪修人格 + 多风格输出 + 
 
 ---
 
-## 🛠️ 内置 Skills（11 领域 56 篇秘典）
+## 🛠️ 内置 Skills（11 领域 + 校验工具）
 
 ### 校验关卡（`/` 直接调用）
 
@@ -201,6 +201,8 @@ Claude 侧命令由 `skills/**/SKILL.md` frontmatter 统一生成；Codex 侧直
 | 🏭 数据工程 | 数据管道、数据质量、流处理 |
 | ☁️ 基础设施 | GitOps、IaC、Kubernetes |
 | 🕸 协同 | 多 Agent 任务分解与并行编排 |
+
+> 当前仓库内 `SKILL.md` 入口总数、可调用工具数与 runtime 布局以 `npm run verify:skills` 和实际安装结果为准，不再在 README 中手写固定计数。
 
 ---
 
@@ -376,7 +378,7 @@ flowchart TD
 3. Claude 渲染为 `~/.claude/commands/*.md`
 4. Codex 安装到 `~/.agents/skills/`，由 Codex 直接发现 `SKILL.md`；若存在 `agents/openai.yaml`，则附加 metadata
 5. `runtimeType=scripted` 时，脚本型 skill 通过 `~/.claude/skills/run_skill.js` / `~/.agents/skills/run_skill.js` 统一执行
-6. `runtimeType=knowledge` 时，双端都只读取 `SKILL.md` 作为执行秘典
+6. `runtimeType=knowledge` 时，三端都只读取 `SKILL.md` 作为执行秘典
 
 这保证了 **同一 skill 集合、同一 runtime 判定、同一脚本执行入口**，避免 command/skill install/script runner 各自漂移。
 

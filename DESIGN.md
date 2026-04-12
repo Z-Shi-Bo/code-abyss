@@ -11,11 +11,11 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 | **身份与规则** | `config/CLAUDE.md` | 定义"做什么"：身份、规则、场景路由、执行链、成功标准 |
 | **输出风格** | `output-styles/*.md` + `output-styles/index.json` | 定义"怎么说"：风格目录 + registry |
 | **技术知识** | `skills/**/*.md` | 定义"会什么"：技术知识 + 道语浸染首尾 |
-| **合并版** | `config/AGENTS.md` | 默认风格 snapshot；Codex 安装时会按所选 style 动态生成 |
+| **合并版** | `config/AGENTS.md` | 仓库内默认风格 snapshot；当前主要作为仓库参考快照 |
 
-### AGENTS.md 生成规则
+### AGENTS.md snapshot 规则
 
-仓库内 `config/AGENTS.md` 保留默认风格 snapshot；Codex 实际安装文件由 `config/CLAUDE.md` + 当前选定的 `output-styles/<slug>.md` 动态拼接生成。每次更新 CLAUDE.md 或默认 style 后需同步更新 snapshot。
+仓库内 `config/AGENTS.md` 仅保留默认风格 snapshot，用于仓库参考与对比；当前 Codex 运行时不再写入 `~/.codex/AGENTS.md`，而是走 `skills-only` + `config.toml` + `instruction.md`。
 
 ## 设计决策
 
@@ -37,7 +37,7 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 - 共享 registry（`bin/lib/skill-registry.js`）负责扫描、分类、脚本入口解析
 - Claude commands、Codex skill 安装、`skills/run_skill.js` 都消费同一份 skill 清单
 
-这样避免安装器、执行器、双端生成器各自维护一套 discovery 逻辑。
+这样避免安装器、执行器与命令生成链各自维护一套 discovery 逻辑。
 
 ### 3. 配置文件位置
 
@@ -55,7 +55,7 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 - 通过 manifest 记录备份清单
 - 避免用户数据丢失
 
-### 5. Skill registry 与双端生成
+### 5. Skill registry 与多端生成
 
 - 问题：skills 元数据发现、脚本执行、Claude commands、Codex 侧安装规则曾各自扫描，容易漂移。
 - 决策：以 `SKILL.md` frontmatter 为唯一事实源，抽出共享 registry，统一产出 `name`、`description`、`userInvocable`、`allowedTools`、`argumentHint`、`relPath`、`category`、`runtimeType`、`scriptPath`、`meta` 等标准化字段；`kind` 与 kebab-case compatibility 镜像字段已从 registry public surface 移除。
@@ -76,14 +76,14 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 - 决策：当前 `skills/run_skill.js` 使用异步定时等待（`setTimeout`/Promise 轮询）保留锁语义与超时策略，消除 CPU 空转。
 - 取舍：入口改为 async，但锁释放时序更稳定、资源占用更低。
 
-### 8. 输出风格 registry 与 Codex 动态 AGENTS
+### 8. 输出风格 registry 与运行时 guidance
 
-- 问题：输出风格曾固定为 `abyss-cultivator`，Claude `outputStyle`、Codex `AGENTS.md`、README 与测试都写死在同一 slug 上，无法扩展成多风格安装。
+- 问题：输出风格曾固定为 `abyss-cultivator`，Claude `outputStyle`、运行时 guidance、README 与测试都写死在同一 slug 上，无法扩展成多风格安装。
 - 决策：新增 `output-styles/index.json` 作为 style registry，统一维护 `slug`、`label`、`description`、`file`、`targets`、`default`。
 - 决策：Claude 继续安装整个 `output-styles/` 目录，并把 `settings.json.outputStyle` 写为所选 style slug。
-- 决策：Codex 不再直接复制仓库内静态 `config/AGENTS.md`，改为安装时动态拼接 `config/CLAUDE.md + output-styles/<slug>.md` 生成目标 `AGENTS.md`。
-- 决策：Codex skills 改对齐官方当前规范，安装到 `~/.agents/skills/`；`agents/openai.yaml` 只负责可选 metadata，而不是旧 `prompts/` 入口。
-- 取舍：安装器多了一层 registry 与模板拼装逻辑，但换来多风格切换能力，并消除 Codex 风格与仓库 snapshot 的长期漂移。
+- 决策：Claude 通过 `settings.json.outputStyle` 选风格；Gemini 由 `config/CLAUDE.md + output-styles/<slug>.md` 动态生成 `GEMINI.md`；Codex 当前维持 `skills-only`，显式忽略 `--style`。
+- 决策：Codex skills 对齐官方当前规范，安装到 `~/.agents/skills/`；`agents/openai.yaml` 只负责可选 metadata，而不是旧 `prompts/` 入口。
+- 取舍：运行时策略按宿主分化，但 style registry 仍保持单一索引，避免 README / 测试 / 安装链再次漂移。
 
 ### 9. Pack registry（进行中）
 
