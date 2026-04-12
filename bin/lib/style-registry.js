@@ -5,13 +5,22 @@ const path = require('path');
 
 const SUPPORTED_TARGETS = new Set(['claude', 'codex']);
 
+// Module-level cache: projectRoot → normalized styles
+const _cache = new Map();
+
+function clearStyleCache() {
+  _cache.clear();
+}
+
 function loadStyleRegistry(projectRoot) {
+  if (_cache.has(projectRoot)) return _cache.get(projectRoot);
+
   const registryPath = path.join(projectRoot, 'output-styles', 'index.json');
   const raw = fs.readFileSync(registryPath, 'utf8');
   const parsed = JSON.parse(raw);
   const styles = Array.isArray(parsed.styles) ? parsed.styles : null;
   if (!styles || styles.length === 0) {
-    throw new Error('output-styles/index.json 缺少 styles 列表');
+    throw new Error('output-styles/index.json 缺少 styles 列表. Check output-styles/index.json has a "styles" array');
   }
 
   const seen = new Set();
@@ -22,9 +31,10 @@ function loadStyleRegistry(projectRoot) {
   });
 
   if (defaultCount !== 1) {
-    throw new Error('style registry 必须且只能有一个 default style');
+    throw new Error('style registry 必须且只能有一个 default style. Check output-styles/index.json — exactly one entry must have "default: true"');
   }
 
+  _cache.set(projectRoot, normalized);
   return normalized;
 }
 
@@ -102,7 +112,7 @@ function readStyleContent(projectRoot, style) {
 function renderCodexAgents(projectRoot, styleSlug) {
   const style = resolveStyle(projectRoot, styleSlug, 'codex');
   if (!style) {
-    throw new Error(`未知输出风格: ${styleSlug}`);
+    throw new Error(`未知输出风格: ${styleSlug}. Try: node bin/install.js --list-styles`);
   }
 
   const basePath = path.join(projectRoot, 'config', 'CLAUDE.md');
@@ -116,4 +126,5 @@ module.exports = {
   getDefaultStyle,
   resolveStyle,
   renderCodexAgents,
+  clearStyleCache,
 };

@@ -15,7 +15,7 @@
  */
 
 const { spawn } = require('child_process');
-const { unlinkSync, closeSync, openSync } = require('fs');
+const { unlinkSync, closeSync, openSync, statSync } = require('fs');
 const { join, resolve } = require('path');
 const { createHash } = require('crypto');
 const { tmpdir } = require('os');
@@ -36,7 +36,7 @@ function getScriptEntry(skillName) {
   const { skill, scriptPath, reason } = resolveExecutableSkillScript(skillsDir, skillName);
 
   if (reason === 'missing') {
-    console.error(`错误: 未知的 skill '${skillName}'`);
+    console.error(`错误: 未知的 skill '${skillName}'. Try: node run_skill.js --help to list available skills`);
     process.exit(1);
   }
 
@@ -47,6 +47,15 @@ function getScriptEntry(skillName) {
   }
 
   return { skill, scriptPath };
+}
+
+const STALE_LOCK_MAX_AGE_MS = 60000;
+
+function isStaleLock(lockPath) {
+  try {
+    const stat = statSync(lockPath);
+    return (Date.now() - stat.mtimeMs) > STALE_LOCK_MAX_AGE_MS;
+  } catch { return false; }
 }
 
 async function acquireTargetLock(args) {
@@ -66,8 +75,14 @@ async function acquireTargetLock(args) {
         console.log(`⏳ 等待锁释放: ${target}`);
         first = false;
       }
+      // Stale lock cleanup: if lock file is older than threshold, remove it
+      if (isStaleLock(lockPath)) {
+        console.log(`⏳ 检测到过期锁，尝试清理: ${lockPath}`);
+        try { unlinkSync(lockPath); } catch { /* best-effort */ }
+        continue;
+      }
       if (Date.now() >= deadline) {
-        console.error(`⏳ 等待锁超时: ${target}`);
+        console.error(`⏳ 等待锁超时: ${target}. Try: rm ${lockPath}`);
         process.exit(1);
       }
       await sleep(200);
@@ -117,6 +132,13 @@ async function main() {
     child.kill('SIGINT');
     releaseLock(lock);
     process.exit(130);
+  });
+
+  process.on('SIGTERM', () => {
+    console.log('\n已终止');
+    child.kill('SIGTERM');
+    releaseLock(lock);
+    process.exit(143);
   });
 }
 

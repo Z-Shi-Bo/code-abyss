@@ -2,12 +2,17 @@
 const fs = require('fs');
 const path = require('path');
 
-function detectCclineBin(cclineBin) {
+function detectCclineBin(cclineBin, warn) {
   if (fs.existsSync(cclineBin)) return true;
   try {
     require('child_process').execSync('ccline --version', { stdio: 'pipe' });
     return true;
-  } catch { return false; }
+  } catch (e) {
+    if (e.code !== 'ENOENT' && warn) {
+      warn(`ccline --version 检测异常: ${e.message}`);
+    }
+    return false;
+  }
 }
 
 function installCclineBin(cclineBin, errors, { info, ok }) {
@@ -21,10 +26,10 @@ function installCclineBin(cclineBin, errors, { info, ok }) {
       ok('ccline 安装成功 (全局)');
       return true;
     } catch {}
-    errors.push('ccline 二进制安装后仍未检测到');
+    errors.push('ccline 二进制安装后仍未检测到. Try: sudo npm install -g @cometix/ccline@1');
     return false;
   } catch (e) {
-    errors.push(`npm install -g @cometix/ccline 失败: ${e.message}`);
+    errors.push(`npm install -g @cometix/ccline 失败: ${e.message}. Try: sudo npm install -g @cometix/ccline@1`);
     return false;
   }
 }
@@ -56,15 +61,20 @@ async function installCcline(ctx, deps) {
   const cclineBin = path.join(cclineDir, process.platform === 'win32' ? 'ccline.exe' : 'ccline');
   const errors = [];
 
-  let hasBin = detectCclineBin(cclineBin);
+  let hasBin = detectCclineBin(cclineBin, warn);
   if (!hasBin) hasBin = installCclineBin(cclineBin, errors, { info, ok });
   else ok('ccline 二进制已存在');
 
   deployCclineConfig(cclineDir, errors, { HOME, PKG_ROOT, ok });
 
-  ctx.settings.statusLine = CCLINE_STATUS_LINE.statusLine;
-  ok(`statusLine → ${c.cyn(CCLINE_STATUS_LINE.statusLine.command)}`);
-  fs.writeFileSync(ctx.settingsPath, JSON.stringify(ctx.settings, null, 2) + '\n');
+  // Only set statusLine if ccline binary was successfully detected/installed
+  if (hasBin) {
+    ctx.settings.statusLine = CCLINE_STATUS_LINE.statusLine;
+    ok(`statusLine → ${c.cyn(CCLINE_STATUS_LINE.statusLine.command)}`);
+    fs.writeFileSync(ctx.settingsPath, JSON.stringify(ctx.settings, null, 2) + '\n');
+  } else {
+    warn('跳过 statusLine 配置: ccline 二进制不可用');
+  }
 
   if (errors.length > 0) {
     console.log('');
