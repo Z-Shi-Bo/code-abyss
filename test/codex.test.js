@@ -67,8 +67,8 @@ describe('codex adapter', () => {
 
   test('getCodexCoreFiles: 仅包含 codex 所需核心文件', () => {
     expect(getCodexCoreFiles()).toEqual([
-      { src: 'skills', dest: 'skills' },
-      { src: 'bin/lib', dest: 'bin/lib' },
+      { src: 'skills', dest: 'skills', root: 'agents' },
+      { src: 'bin/lib', dest: 'bin/lib', root: 'agents' },
     ]);
   });
 
@@ -82,44 +82,65 @@ describe('codex adapter', () => {
     ].join('\n');
 
     const { merged, added } = mergeCodexConfigDefaults(input);
-    expect(added).toEqual(['approval_policy', 'sandbox_mode', 'features.multi_agent']);
-    expect(merged).toContain('approval_policy = "never"');
-    expect(merged).toContain('sandbox_mode = "danger-full-access"');
-    expect(merged).toContain('[features]');
-    expect(merged).toContain('multi_agent = true');
+    expect(added).toEqual([
+      'approval_policy',
+      'allow_login_shell',
+      'cli_auth_credentials_store',
+      'sandbox_mode',
+      'web_search',
+    ]);
+    expect(merged).toContain('approval_policy = "on-request"');
+    expect(merged).toContain('allow_login_shell = true');
+    expect(merged).toContain('cli_auth_credentials_store = "file"');
+    expect(merged).toContain('sandbox_mode = "read-only"');
+    expect(merged).toContain('web_search = "cached"');
   });
 
   test('mergeCodexConfigDefaults: 已有项不覆盖', () => {
     const input = [
       'sandbox_mode = "workspace-write"',
       '',
-      '[features]',
-      'multi_agent = false',
+      '[profiles.abyss]',
+      'sandbox_mode = "danger-full-access"',
+      'approval_policy = "never"',
       '',
     ].join('\n');
 
     const { merged, added } = mergeCodexConfigDefaults(input);
-    expect(added).toEqual(['approval_policy']);
+    expect(added).toEqual([
+      'approval_policy',
+      'allow_login_shell',
+      'cli_auth_credentials_store',
+      'web_search',
+    ]);
     expect(merged).toContain('sandbox_mode = "workspace-write"');
-    expect(merged).toContain('multi_agent = false');
-    expect(merged).not.toContain('danger-full-access');
+    expect(merged).toContain('[profiles.abyss]');
+    expect(merged).toContain('sandbox_mode = "danger-full-access"');
+    expect(merged).toContain('approval_policy = "never"');
+    expect(merged).not.toContain('sandbox_mode = "read-only"');
   });
 
-  test('mergeCodexConfigDefaults: features 存在但缺少 multi_agent 时补入', () => {
+  test('mergeCodexConfigDefaults: 保留 profiles.* 中合法 root-like 键', () => {
     const input = [
+      '[profiles.safe]',
+      'approval_policy = "on-request"',
       'sandbox_mode = "workspace-write"',
-      '',
-      '[features]',
-      'other_flag = true',
-      '',
-      '[tools]',
-      'web_search = true',
+      'web_search = "cached"',
       '',
     ].join('\n');
 
     const { merged, added } = mergeCodexConfigDefaults(input);
-    expect(added).toEqual(['approval_policy', 'features.multi_agent']);
-    expect(merged).toMatch(/\[features\]\nmulti_agent = true\nother_flag = true/);
+    expect(added).toEqual([
+      'approval_policy',
+      'allow_login_shell',
+      'cli_auth_credentials_store',
+      'sandbox_mode',
+      'web_search',
+    ]);
+    expect(merged).toContain('[profiles.safe]');
+    expect(merged).toContain('approval_policy = "on-request"');
+    expect(merged).toContain('sandbox_mode = "workspace-write"');
+    expect(merged).toContain('web_search = "cached"');
   });
 
   test('patchCodexConfigDefaults: 写回文件并返回补全项', () => {
@@ -130,11 +151,18 @@ describe('codex adapter', () => {
     const added = patchCodexConfigDefaults(cfgPath);
     const saved = fs.readFileSync(cfgPath, 'utf8');
 
-    expect(added).toEqual(['approval_policy', 'sandbox_mode', 'features.multi_agent']);
-    expect(saved).toContain('approval_policy = "never"');
-    expect(saved).toContain('sandbox_mode = "danger-full-access"');
-    expect(saved).toContain('[features]');
-    expect(saved).toContain('multi_agent = true');
+    expect(added).toEqual([
+      'approval_policy',
+      'allow_login_shell',
+      'cli_auth_credentials_store',
+      'sandbox_mode',
+      'web_search',
+    ]);
+    expect(saved).toContain('approval_policy = "on-request"');
+    expect(saved).toContain('allow_login_shell = true');
+    expect(saved).toContain('cli_auth_credentials_store = "file"');
+    expect(saved).toContain('sandbox_mode = "read-only"');
+    expect(saved).toContain('web_search = "cached"');
   });
 
   test('cleanupLegacyCodexConfig: 清理 removed features', () => {
@@ -142,19 +170,19 @@ describe('codex adapter', () => {
       '[features]',
       'remote_models = true',
       'search_tool = false',
-      'multi_agent = true',
+      'shell_snapshot = true',
       '',
     ].join('\n');
 
     const { merged, removed, migrated } = cleanupLegacyCodexConfig(input);
     expect(removed.sort()).toEqual(['remote_models', 'search_tool']);
     expect(migrated).toEqual([]);
-    expect(merged).toContain('multi_agent = true');
+    expect(merged).toContain('shell_snapshot = true');
     expect(merged).not.toContain('remote_models = true');
     expect(merged).not.toContain('search_tool = false');
   });
 
-  test('cleanupLegacyCodexConfig: deprecated web_search_* 迁移到 [tools].web_search', () => {
+  test('cleanupLegacyCodexConfig: deprecated web_search_* 迁移到 root web_search', () => {
     const input = [
       '[features]',
       'web_search_request = true',
@@ -164,11 +192,24 @@ describe('codex adapter', () => {
 
     const { merged, removed, migrated } = cleanupLegacyCodexConfig(input);
     expect(removed.sort()).toEqual(['web_search_cached', 'web_search_request']);
-    expect(migrated).toEqual(['tools.web_search=true']);
-    expect(merged).toContain('[tools]');
-    expect(merged).toContain('web_search = true');
+    expect(migrated).toEqual(['web_search=live']);
+    expect(merged).toContain('web_search = "live"');
     expect(merged).not.toContain('web_search_request');
     expect(merged).not.toContain('web_search_cached');
+  });
+
+  test('cleanupLegacyCodexConfig: 迁移旧 [tools].web_search 布尔配置', () => {
+    const input = [
+      '[tools]',
+      'web_search = true',
+      '',
+    ].join('\n');
+
+    const { merged, removed, migrated } = cleanupLegacyCodexConfig(input);
+    expect(removed).toEqual(['tools.web_search']);
+    expect(migrated).toEqual(['web_search=cached']);
+    expect(merged).toContain('web_search = "cached"');
+    expect(merged).not.toContain('[tools]\nweb_search = true');
   });
 
   test('patchCodexConfig: 同时返回补全、清理、迁移结果', () => {
@@ -179,13 +220,19 @@ describe('codex adapter', () => {
     const report = patchCodexConfig(cfgPath);
     const saved = fs.readFileSync(cfgPath, 'utf8');
 
-    expect(report.added).toEqual(['approval_policy', 'sandbox_mode', 'features.multi_agent']);
+    expect(report.added).toEqual([
+      'approval_policy',
+      'allow_login_shell',
+      'cli_auth_credentials_store',
+      'sandbox_mode',
+    ]);
     expect(report.removed.sort()).toEqual(['remote_models', 'web_search_request']);
-    expect(report.migrated).toEqual(['tools.web_search=true']);
-    expect(saved).toContain('approval_policy = "never"');
-    expect(saved).toContain('sandbox_mode = "danger-full-access"');
-    expect(saved).toContain('multi_agent = true');
-    expect(saved).toContain('web_search = true');
+    expect(report.migrated).toEqual(['web_search=live']);
+    expect(saved).toContain('approval_policy = "on-request"');
+    expect(saved).toContain('allow_login_shell = true');
+    expect(saved).toContain('cli_auth_credentials_store = "file"');
+    expect(saved).toContain('sandbox_mode = "read-only"');
+    expect(saved).toContain('web_search = "live"');
     expect(saved).not.toContain('remote_models = true');
   });
 
@@ -205,8 +252,8 @@ describe('codex adapter', () => {
     const firstSection = firstSectionIdx >= 0 ? lines[firstSectionIdx] : '';
 
     expect(firstSection).toBe('[features]');
-    expect(merged.indexOf('approval_policy = "never"')).toBeLessThan(merged.indexOf('[features]'));
-    expect(merged.indexOf('sandbox_mode = "danger-full-access"')).toBeLessThan(merged.indexOf('[features]'));
+    expect(merged.indexOf('approval_policy = "on-request"')).toBeLessThan(merged.indexOf('[features]'));
+    expect(merged.indexOf('sandbox_mode = "read-only"')).toBeLessThan(merged.indexOf('[features]'));
   });
 
   test('patchCodexConfig: full access 下移除 projects trust_level 段', () => {
@@ -240,12 +287,13 @@ describe('codex adapter', () => {
     fs.writeFileSync(
       cfgPath,
       [
+        '[profiles.abyss]',
+        'sandbox_mode = "danger-full-access"',
+        'approval_policy = "never"',
+        '',
         '[notice.model_migrations]',
         '"gpt-5.2" = "gpt-5.2-codex"',
         'sandbox_mode = "workspace-write"',
-        '',
-        '[features]',
-        'multi_agent = true',
         '',
       ].join('\n')
     );
@@ -253,8 +301,10 @@ describe('codex adapter', () => {
     patchCodexConfig(cfgPath);
     const saved = fs.readFileSync(cfgPath, 'utf8');
 
-    const rootPrefix = saved.split('[features]')[0];
-    expect(rootPrefix).toContain('sandbox_mode = "danger-full-access"');
+    const rootPrefix = saved.split('[profiles.abyss]')[0];
+    expect(rootPrefix).toContain('sandbox_mode = "read-only"');
+    expect(rootPrefix).toContain('approval_policy = "on-request"');
+    expect(saved).toContain('[profiles.abyss]\nsandbox_mode = "danger-full-access"\napproval_policy = "never"');
     expect(saved).not.toContain(
       '[notice.model_migrations]\n"gpt-5.2" = "gpt-5.2-codex"\nsandbox_mode = "workspace-write"'
     );

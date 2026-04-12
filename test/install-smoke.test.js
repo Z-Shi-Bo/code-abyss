@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { spawnSync } = require('child_process');
+const gstackFixture = path.join(__dirname, 'fixtures', 'gstack-codex-source');
 
 describe('install cli styles', () => {
   test('--list-styles 列出可用风格', () => {
@@ -36,6 +37,7 @@ describe('claude install smoke', () => {
         ...process.env,
         HOME: tmpHome,
         USERPROFILE: tmpHome,
+        CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
       },
       encoding: 'utf8',
     });
@@ -50,6 +52,8 @@ describe('claude install smoke', () => {
     expect(fs.existsSync(path.join(claudeDir, 'skills'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'commands'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'commands', 'gen-docs.md'))).toBe(true);
+    expect(fs.existsSync(path.join(claudeDir, 'commands', 'review.md'))).toBe(true);
+    expect(fs.existsSync(path.join(claudeDir, 'skills', 'gstack', 'review', 'SKILL.md'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, '.sage-uninstall.js'))).toBe(true);
   });
@@ -90,25 +94,26 @@ describe('codex install smoke', () => {
   test('安装 Codex 时生成 skills（含 agents/openai.yaml）且不写 settings.json', () => {
     const result = runInstall(['--target', 'codex', '-y']);
     const codexDir = path.join(tmpHome, '.codex');
+    const agentsDir = path.join(tmpHome, '.agents');
 
     expect(result.status).toBe(0);
-    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
-    expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(true);
-    expect(fs.existsSync(path.join(codexDir, 'bin', 'lib'))).toBe(true);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(fs.existsSync(path.join(agentsDir, 'skills'))).toBe(true);
+    expect(fs.existsSync(path.join(agentsDir, 'bin', 'lib'))).toBe(true);
+    expect(fs.existsSync(path.join(agentsDir, 'skills', 'gstack', 'review', 'SKILL.md'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'config.toml'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'settings.json'))).toBe(false);
     // Codex 0.117.0+ 已移除 custom prompts，不再生成 prompts/
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
   });
 
-  test('安装 Codex 时根据 --style 动态生成 AGENTS.md', () => {
+  test('安装 Codex 时忽略 --style，不再生成 AGENTS.md', () => {
     const result = runInstall(['--target', 'codex', '--style', 'abyss-concise', '-y']);
     const codexDir = path.join(tmpHome, '.codex');
-    const agents = fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8');
 
     expect(result.status).toBe(0);
-    expect(agents).toContain('# 冷刃简报 · 输出之道');
-    expect(agents).toContain('道语标签、情绪模板、场景报告模板见当前选定的 `output-styles/*.md` 风格文件。');
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(result.stdout).toContain('忽略 --style');
   });
 
   test('安装 Codex 时会迁移旧 settings.json，卸载后恢复', () => {
@@ -117,13 +122,16 @@ describe('codex install smoke', () => {
     fs.writeFileSync(path.join(codexDir, 'settings.json'), '{"legacy":true}\n');
 
     const install = runInstall(['--target', 'codex', '-y']);
+    const agentsDir = path.join(tmpHome, '.agents');
 
     expect(install.status).toBe(0);
     expect(fs.existsSync(path.join(codexDir, 'settings.json'))).toBe(false);
     expect(install.stdout).toContain('移除 legacy settings.json');
+    expect(fs.existsSync(path.join(agentsDir, 'skills'))).toBe(true);
 
     const uninstall = runInstall(['--uninstall', 'codex']);
     expect(uninstall.status).toBe(0);
     expect(fs.readFileSync(path.join(codexDir, 'settings.json'), 'utf8')).toContain('legacy');
+    expect(fs.existsSync(path.join(agentsDir, 'skills'))).toBe(false);
   });
 });

@@ -15,18 +15,26 @@ if (parseInt(process.versions.node) < parseInt(MIN_NODE)) {
   process.exit(1);
 }
 const PKG_ROOT = fs.realpathSync(path.join(__dirname, '..'));
-const { shouldSkip, copyRecursive, rmSafe, deepMergeNew, printMergeLog } =
+const { shouldSkip, copyRecursive, rmSafe, deepMergeNew, printMergeLog, formatActionableError } =
   require(path.join(__dirname, 'lib', 'utils.js'));
 const {
   collectInvocableSkills,
 } = require(path.join(__dirname, 'lib', 'skill-registry.js'));
 const {
+  resolveProjectPacks,
+  selectProjectPacksForInstall,
+  readProjectPackLock,
+} = require(path.join(__dirname, 'lib', 'pack-registry.js'));
+const { syncProjectBootstrapArtifacts } = require(path.join(__dirname, 'lib', 'pack-bootstrap.js'));
+const { writeReportArtifact } = require(path.join(__dirname, 'lib', 'pack-reports.js'));
+const {
   listStyles,
   getDefaultStyle,
   resolveStyle,
-  renderCodexAgents,
 } = require(path.join(__dirname, 'lib', 'style-registry.js'));
 const { detectCclineBin, installCcline: _installCcline } = require(path.join(__dirname, 'lib', 'ccline.js'));
+const { installGstackClaudePack } = require(path.join(__dirname, 'lib', 'gstack-claude.js'));
+const { installGstackCodexPack } = require(path.join(__dirname, 'lib', 'gstack-codex.js'));
 const {
   detectCodexAuth: detectCodexAuthImpl,
   getCodexCoreFiles,
@@ -93,7 +101,40 @@ function detectCodexAuth() {
   return detectCodexAuthImpl({ HOME, warn });
 }
 
-// ── 模板 ──
+function resolveManagedRootDir(tgt, rootName = tgt) {
+  if (rootName === 'claude') return path.join(HOME, '.claude');
+  if (rootName === 'codex') return path.join(HOME, '.codex');
+  if (rootName === 'agents') return path.join(HOME, '.agents');
+  throw new Error(`不支持的安装根: ${rootName}`);
+}
+
+function normalizeManifestEntry(entry, defaultRoot) {
+  if (typeof entry === 'string') return { root: defaultRoot, path: entry };
+  if (entry && typeof entry === 'object' && typeof entry.path === 'string') {
+    return { root: entry.root || defaultRoot, path: entry.path };
+  }
+  throw new Error('manifest 条目格式无效');
+}
+
+function pushManifestEntry(list, rootName, relPath) {
+  list.push({ root: rootName, path: relPath });
+}
+
+function pushPackReport(manifest, report) {
+  if (!manifest.pack_reports) manifest.pack_reports = [];
+  manifest.pack_reports.push(report);
+}
+
+function resolveEffectivePackSource(sourceMode, installResult) {
+  return (installResult && installResult.sourceMode) || sourceMode || 'pinned';
+}
+
+function manifestLabel(entry, defaultRoot) {
+  const normalized = normalizeManifestEntry(entry, defaultRoot);
+  return normalized.root === defaultRoot
+    ? normalized.path
+    : `${normalized.root}/${normalized.path}`;
+}
 
 // ── CLI 参数 ──
 
@@ -137,27 +178,48 @@ ${c.b('示例:')}
 // ── 卸载 ──
 
 function runUninstall(tgt) {
-  if (!['claude', 'codex'].includes(tgt)) { fail('--uninstall 必须是 claude 或 codex'); process.exit(1); }
-  const targetDir = path.join(HOME, `.${tgt}`);
+  if (!['claude', 'codex'].includes(tgt)) { fail(formatActionableError('--uninstall 必须是 claude 或 codex', 'Try: npx code-abyss --uninstall claude')); process.exit(1); }
+  const targetDir = resolveManagedRootDir(tgt);
   const backupDir = path.join(targetDir, '.sage-backup');
   const manifestPath = path.join(backupDir, 'manifest.json');
   if (!fs.existsSync(manifestPath)) { fail(`未找到安装记录: ${manifestPath}`); process.exit(1); }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  if (manifest.manifest_version && manifest.manifest_version > 1) {
+  if (manifest.manifest_version && manifest.manifest_version > 2) {
     fail(`manifest 版本 ${manifest.manifest_version} 不兼容，请升级 code-abyss 后再卸载`);
     process.exit(1);
   }
   divider(`卸载 Code Abyss v${manifest.version}`);
+  if (Array.isArray(manifest.pack_reports) && manifest.pack_reports.length > 0) {
+    console.log(`  ${c.b('Packs:')}`);
+    manifest.pack_reports.forEach((report) => {
+      const source = report.source ? ` source=${report.source}` : '';
+      const reason = report.reason ? ` reason=${report.reason}` : '';
+      console.log(`    ${report.pack}@${report.host} ${report.status || 'installed'}${source}${reason}`);
+    });
+  }
 
-  (manifest.installed || []).forEach(f => {
-    const p = path.join(targetDir, f);
-    if (fs.existsSync(p)) { rmSafe(p); console.log(`  ${c.red('✘')} ${f}`); }
+  (manifest.installed || []).forEach((entry) => {
+    const normalized = normalizeManifestEntry(entry, tgt);
+    const installRoot = resolveManagedRootDir(tgt, normalized.root);
+    const targetPath = path.join(installRoot, normalized.path);
+    if (fs.existsSync(targetPath)) {
+      rmSafe(targetPath);
+      console.log(`  ${c.red('✘')} ${manifestLabel(entry, tgt)}`);
+    }
   });
-  (manifest.backups || []).forEach(f => {
-    const bp = path.join(backupDir, f);
-    const tp = path.join(targetDir, f);
-    if (fs.existsSync(bp)) { fs.renameSync(bp, tp); ok(`恢复: ${f}`); }
+  (manifest.backups || []).forEach((entry) => {
+    const normalized = normalizeManifestEntry(entry, tgt);
+    const backupPath = path.join(backupDir, normalized.root, normalized.path);
+    const legacyBackupPath = path.join(backupDir, normalized.path);
+    const sourcePath = fs.existsSync(backupPath) ? backupPath : legacyBackupPath;
+    const restoreRoot = resolveManagedRootDir(tgt, normalized.root);
+    const restorePath = path.join(restoreRoot, normalized.path);
+    if (fs.existsSync(sourcePath)) {
+      fs.mkdirSync(path.dirname(restorePath), { recursive: true });
+      fs.renameSync(sourcePath, restorePath);
+      ok(`恢复: ${manifestLabel(entry, tgt)}`);
+    }
   });
 
   rmSafe(backupDir);
@@ -173,24 +235,11 @@ function scanInvocableSkills(skillsDir) {
   return collectInvocableSkills(skillsDir);
 }
 
-const INVOCABLE_TARGETS = {
-  claude: {
-    dir: 'commands',
-    label: '斜杠命令',
-    skillRoot: '~/.claude/skills',
-  },
-  codex: {
-    dir: 'prompts',
-    label: 'custom prompts',
-    skillRoot: '~/.codex/skills',
-  },
+const CLAUDE_COMMAND_TARGET = {
+  dir: 'commands',
+  label: '斜杠命令',
+  skillRoot: '~/.claude/skills',
 };
-
-function getInvocableTarget(targetName) {
-  const targetCfg = INVOCABLE_TARGETS[targetName];
-  if (!targetCfg) throw new Error(`不支持的 invocable target: ${targetName}`);
-  return targetCfg;
-}
 
 function getSkillPath(skillRoot, skillRelPath) {
   return skillRelPath
@@ -212,23 +261,20 @@ function buildCommandFrontmatter(skill) {
   return lines;
 }
 
-function buildSkillArtifactSpec(skill, targetName) {
-  const targetCfg = getInvocableTarget(targetName);
+function buildClaudeCommandSpec(skill) {
   const runtimeType = skill.runtimeType || 'knowledge';
   const allowedTools = Array.isArray(skill.allowedTools)
     ? skill.allowedTools.join(', ')
     : (skill.allowedTools || 'Read');
   return {
-    targetName,
-    targetCfg,
     name: skill.name,
     description: skill.description,
     argumentHint: skill.argumentHint || '',
     allowedTools,
     relPath: skill.relPath,
     runtimeType,
-    scriptRunner: `node ${targetCfg.skillRoot}/run_skill.js ${skill.name} $ARGUMENTS`,
-    skillPath: getSkillPath(targetCfg.skillRoot, skill.relPath),
+    scriptRunner: `node ${CLAUDE_COMMAND_TARGET.skillRoot}/run_skill.js ${skill.name} $ARGUMENTS`,
+    skillPath: getSkillPath(CLAUDE_COMMAND_TARGET.skillRoot, skill.relPath),
   };
 }
 
@@ -248,31 +294,6 @@ function buildClaudeBody(spec) {
   return lines;
 }
 
-function buildCodexPromptBody(spec) {
-  const lines = [];
-  if (spec.argumentHint) lines.push(`Arguments: ${spec.argumentHint}`, '');
-  lines.push(`Read \`${spec.skillPath}\` before acting.`, '');
-  if (spec.runtimeType === 'scripted') {
-    lines.push(`Then run \`${spec.scriptRunner}\`.`);
-    lines.push('Do not stop between steps unless blocked by permissions or missing required inputs.');
-    lines.push('Use the skill guidance plus script output to complete the task end-to-end.');
-    return lines;
-  }
-
-  lines.push('Use that skill as the authoritative playbook for the task.');
-  lines.push('Respond with concrete actions instead of generic advice.');
-  return lines;
-}
-
-function generateInvocableContent(skill, targetName) {
-  const spec = buildSkillArtifactSpec(skill, targetName);
-  const lines = targetName === 'claude' ? buildCommandFrontmatter(spec) : [];
-  const body = targetName === 'claude'
-    ? buildClaudeBody(spec)
-    : buildCodexPromptBody(spec);
-  return [...lines, ...body, ''].join('\n');
-}
-
 function normalizeGeneratedSkill(meta, skillRelPath, runtimeType) {
   return {
     ...meta,
@@ -285,19 +306,17 @@ function normalizeGeneratedSkill(meta, skillRelPath, runtimeType) {
 }
 
 function generateCommandContent(meta, skillRelPath, runtimeType = 'knowledge') {
-  return generateInvocableContent(normalizeGeneratedSkill(meta, skillRelPath, runtimeType), 'claude');
+  const skill = normalizeGeneratedSkill(meta, skillRelPath, runtimeType);
+  const spec = buildClaudeCommandSpec(skill);
+  return [...buildCommandFrontmatter(spec), ...buildClaudeBody(spec), ''].join('\n');
 }
 
-function generatePromptContent(meta, skillRelPath, runtimeType = 'knowledge') {
-  return generateInvocableContent(normalizeGeneratedSkill(meta, skillRelPath, runtimeType), 'codex');
-}
-
-function installGeneratedArtifacts(skillsSrcDir, targetDir, backupDir, manifest, targetName) {
+function installGeneratedArtifacts(skillsSrcDir, targetDir, backupDir, manifest) {
   const skills = collectInvocableSkills(skillsSrcDir);
   if (skills.length === 0) return 0;
+  const rootName = manifest.target || 'claude';
 
-  const targetCfg = getInvocableTarget(targetName);
-  const installDir = path.join(targetDir, targetCfg.dir);
+  const installDir = path.join(targetDir, CLAUDE_COMMAND_TARGET.dir);
   fs.mkdirSync(installDir, { recursive: true });
 
   let totalFiles = 0;
@@ -309,53 +328,50 @@ function installGeneratedArtifacts(skillsSrcDir, targetDir, backupDir, manifest,
     names.forEach((cmdName) => {
       const fileName = `${cmdName}.md`;
       const destFile = path.join(installDir, fileName);
-      const relFile = path.posix.join(targetCfg.dir, fileName);
+      const relFile = path.posix.join(CLAUDE_COMMAND_TARGET.dir, fileName);
 
       if (fs.existsSync(destFile)) {
-        const backupSubdir = path.join(backupDir, targetCfg.dir);
+        const backupSubdir = path.join(backupDir, rootName, CLAUDE_COMMAND_TARGET.dir);
         fs.mkdirSync(backupSubdir, { recursive: true });
         fs.copyFileSync(destFile, path.join(backupSubdir, fileName));
-        manifest.backups.push(relFile);
+        pushManifestEntry(manifest.backups, rootName, relFile);
         info(`备份: ${c.d(relFile)}`);
       }
 
-      const content = generateInvocableContent(skill, targetName);
+      const content = generateCommandContent(skill, skill.relPath, skill.runtimeType);
       fs.writeFileSync(destFile, content);
-      manifest.installed.push(relFile);
+      pushManifestEntry(manifest.installed, rootName, relFile);
       totalFiles++;
     });
   });
 
-  ok(`${targetCfg.dir}/ ${c.d(`(自动生成 ${totalFiles} 个 ${targetCfg.label})`)}`);
+  ok(`${CLAUDE_COMMAND_TARGET.dir}/ ${c.d(`(自动生成 ${totalFiles} 个 ${CLAUDE_COMMAND_TARGET.label})`)}`);
   return skills.length;
 }
 
 function installGeneratedCommands(skillsSrcDir, targetDir, backupDir, manifest) {
-  return installGeneratedArtifacts(skillsSrcDir, targetDir, backupDir, manifest, 'claude');
+  return installGeneratedArtifacts(skillsSrcDir, targetDir, backupDir, manifest);
 }
 
-function installGeneratedPrompts(skillsSrcDir, targetDir, backupDir, manifest) {
-  return installGeneratedArtifacts(skillsSrcDir, targetDir, backupDir, manifest, 'codex');
-}
-
-function backupPathIfExists(targetDir, backupDir, relPath, manifest) {
-  const targetPath = path.join(targetDir, relPath);
+function backupManagedPathIfExists(tgt, rootName, backupDir, relPath, manifest) {
+  const targetRoot = resolveManagedRootDir(tgt, rootName);
+  const targetPath = path.join(targetRoot, relPath);
   if (!fs.existsSync(targetPath)) return false;
 
-  const backupPath = path.join(backupDir, relPath);
+  const backupPath = path.join(backupDir, rootName, relPath);
   rmSafe(backupPath);
   copyRecursive(targetPath, backupPath);
-  manifest.backups.push(relPath);
-  info(`备份: ${c.d(relPath)}`);
+  pushManifestEntry(manifest.backups, rootName, relPath);
+  info(`备份: ${c.d(rootName === tgt ? relPath : `${rootName}/${relPath}`)}`);
   return true;
 }
 
-function pruneLegacyCodexSettings(targetDir, backupDir, manifest) {
+function pruneLegacyCodexSettings(tgt, backupDir, manifest) {
   const relPath = 'settings.json';
-  const settingsPath = path.join(targetDir, relPath);
+  const settingsPath = path.join(resolveManagedRootDir(tgt, 'codex'), relPath);
   if (!fs.existsSync(settingsPath)) return null;
 
-  backupPathIfExists(targetDir, backupDir, relPath, manifest);
+  backupManagedPathIfExists(tgt, 'codex', backupDir, relPath, manifest);
   rmSafe(settingsPath);
   warn('移除 legacy settings.json（Codex 已改用 config.toml）');
   return settingsPath;
@@ -374,7 +390,45 @@ function printStyleCatalog() {
   console.log('');
 }
 
+async function resolveProjectPackPlan(targetName) {
+  const projectPacks = resolveProjectPacks(process.cwd(), targetName);
+  if (!projectPacks.path) {
+    return {
+      ...projectPacks,
+      selected: [],
+      optionalSelected: [],
+      sources: {},
+    };
+  }
+
+  let confirmOptional = null;
+  if (projectPacks.optionalPolicy === 'prompt' && projectPacks.optional.length > 0 && !autoYes) {
+    const { confirm } = await import('@inquirer/prompts');
+    confirmOptional = async (optionalPacks) => confirm({
+      message: `当前仓库声明了 optional packs: ${optionalPacks.join(', ')}，是否一并安装?`,
+      default: true,
+    });
+  }
+
+  const selection = await selectProjectPacksForInstall(projectPacks, {
+    autoYes,
+    confirm: confirmOptional,
+  });
+
+  return {
+    ...projectPacks,
+    ...selection,
+  };
+}
+
 async function resolveInstallStyle(targetName) {
+  if (targetName === 'codex') {
+    if (requestedStyleSlug) {
+      warn('Codex 已改为 skills-only，忽略 --style（不再生成 ~/.codex/AGENTS.md）');
+    }
+    return getDefaultStyle(PKG_ROOT, 'claude');
+  }
+
   if (requestedStyleSlug) {
     const style = resolveStyle(PKG_ROOT, requestedStyleSlug, targetName);
     if (!style) {
@@ -401,22 +455,15 @@ async function resolveInstallStyle(targetName) {
   return resolveStyle(PKG_ROOT, slug, targetName);
 }
 
-function installCodexAgents(targetDir, backupDir, manifest, selectedStyle) {
-  const relPath = 'AGENTS.md';
-  backupPathIfExists(targetDir, backupDir, relPath, manifest);
-  const destPath = path.join(targetDir, relPath);
-  const content = renderCodexAgents(PKG_ROOT, selectedStyle.slug);
-  fs.writeFileSync(destPath, content);
-  manifest.installed.push(relPath);
-  ok(`${relPath} ${c.d(`(动态生成: ${selectedStyle.slug})`)}`);
-}
-
-function installCore(tgt, selectedStyle) {
-  const targetDir = path.join(HOME, `.${tgt}`);
+function installCore(tgt, selectedStyle, packPlan) {
+  const targetDir = resolveManagedRootDir(tgt);
   const backupDir = path.join(targetDir, '.sage-backup');
   const manifestPath = path.join(backupDir, 'manifest.json');
 
-  step(1, 3, `安装核心文件 → ${c.cyn(targetDir)}`);
+  const installSummary = tgt === 'codex'
+    ? `${c.cyn(resolveManagedRootDir(tgt, 'codex'))} + ${c.cyn(resolveManagedRootDir(tgt, 'agents'))}`
+    : c.cyn(targetDir);
+  step(1, 3, `安装核心文件 → ${installSummary}`);
   fs.mkdirSync(backupDir, { recursive: true });
 
   const filesToInstall = tgt === 'codex'
@@ -424,13 +471,18 @@ function installCore(tgt, selectedStyle) {
     : getClaudeCoreFiles();
 
   const manifest = {
-    manifest_version: 1, version: VERSION, target: tgt,
-    timestamp: new Date().toISOString(), style: selectedStyle.slug, installed: [], backups: []
+    manifest_version: 2, version: VERSION, target: tgt,
+    timestamp: new Date().toISOString(), style: selectedStyle.slug, installed: [], backups: [],
+    project_packs: packPlan.selected,
+    optional_policy: packPlan.optionalPolicy || 'auto',
+    pack_reports: [],
   };
 
-  filesToInstall.forEach(({ src, dest }) => {
+  filesToInstall.forEach(({ src, dest, root }) => {
+    const rootName = root || tgt;
     const srcPath = path.join(PKG_ROOT, src);
-    const destPath = path.join(targetDir, dest);
+    const destRoot = resolveManagedRootDir(tgt, rootName);
+    const destPath = path.join(destRoot, dest);
     if (!fs.existsSync(srcPath)) {
       if (src === 'skills') {
         fail(`核心文件缺失: ${srcPath}\n    请尝试: npm cache clean --force && npx code-abyss`);
@@ -440,22 +492,91 @@ function installCore(tgt, selectedStyle) {
     }
 
     if (fs.existsSync(destPath)) {
-      const bp = path.join(backupDir, dest);
-      rmSafe(bp); copyRecursive(destPath, bp); manifest.backups.push(dest);
-      info(`备份: ${c.d(dest)}`);
+      const backupPath = path.join(backupDir, rootName, dest);
+      rmSafe(backupPath);
+      copyRecursive(destPath, backupPath);
+      pushManifestEntry(manifest.backups, rootName, dest);
+      info(`备份: ${c.d(rootName === tgt ? dest : `${rootName}/${dest}`)}`);
     }
-    ok(dest);
-    rmSafe(destPath); copyRecursive(srcPath, destPath); manifest.installed.push(dest);
+    ok(rootName === tgt ? dest : `${rootName}/${dest}`);
+    rmSafe(destPath);
+    copyRecursive(srcPath, destPath);
+    pushManifestEntry(manifest.installed, rootName, dest);
+  });
+
+  pushPackReport(manifest, {
+    pack: 'abyss',
+    host: tgt,
+    status: 'installed',
+    source: 'bundled',
   });
 
   // 为目标 CLI 自动生成 user-invocable artifacts
   if (tgt === 'claude') {
     const skillsSrc = path.join(PKG_ROOT, 'skills');
     installGeneratedCommands(skillsSrc, targetDir, backupDir, manifest);
+    if (packPlan.selected.includes('gstack')) {
+      const sourceMode = (packPlan.sources && packPlan.sources.gstack) || 'pinned';
+      const result = installGstackClaudePack({
+        HOME,
+        backupDir,
+        manifest,
+        info,
+        ok,
+        warn,
+        sourceMode,
+        projectRoot: packPlan.root,
+        fallback: true,
+      });
+      pushPackReport(manifest, {
+        pack: 'gstack',
+        host: 'claude',
+        status: result.installed ? 'installed' : 'skipped',
+        source: resolveEffectivePackSource(sourceMode, result),
+        reason: result.reason || null,
+      });
+    } else if (packPlan.required.includes('gstack') || packPlan.optional.includes('gstack')) {
+      const sourceMode = (packPlan.sources && packPlan.sources.gstack) || 'pinned';
+      pushPackReport(manifest, {
+        pack: 'gstack',
+        host: 'claude',
+        status: sourceMode === 'disabled' ? 'disabled' : 'skipped',
+        source: sourceMode,
+        reason: sourceMode === 'disabled' ? 'source-disabled' : `optional-policy-${packPlan.optionalPolicy || 'auto'}`,
+      });
+    }
   } else if (tgt === 'codex') {
-    // Codex 0.117.0+ 已移除 custom prompts，skills 通过 agents/openai.yaml 注册
-    // 不再生成 prompts/ 目录
-    installCodexAgents(targetDir, backupDir, manifest, selectedStyle);
+    // Codex 走 skills-only：不再生成 ~/.codex/AGENTS.md，项目声明的 pack 自动装入 ~/.agents/skills/
+    if (packPlan.selected.includes('gstack')) {
+      const sourceMode = (packPlan.sources && packPlan.sources.gstack) || 'pinned';
+      const result = installGstackCodexPack({
+        HOME,
+        backupDir,
+        manifest,
+        info,
+        ok,
+        warn,
+        sourceMode,
+        projectRoot: packPlan.root,
+        fallback: true,
+      });
+      pushPackReport(manifest, {
+        pack: 'gstack',
+        host: 'codex',
+        status: result.installed ? 'installed' : 'skipped',
+        source: resolveEffectivePackSource(sourceMode, result),
+        reason: result.reason || null,
+      });
+    } else if (packPlan.required.includes('gstack') || packPlan.optional.includes('gstack')) {
+      const sourceMode = (packPlan.sources && packPlan.sources.gstack) || 'pinned';
+      pushPackReport(manifest, {
+        pack: 'gstack',
+        host: 'codex',
+        status: sourceMode === 'disabled' ? 'disabled' : 'skipped',
+        source: sourceMode,
+        reason: sourceMode === 'disabled' ? 'source-disabled' : `optional-policy-${packPlan.optionalPolicy || 'auto'}`,
+      });
+    }
   }
 
   let settingsPath = null;
@@ -469,15 +590,16 @@ function installCore(tgt, selectedStyle) {
         warn('settings.json 解析失败，将使用空配置');
         settings = {};
       }
-      fs.copyFileSync(settingsPath, path.join(backupDir, 'settings.json'));
-      manifest.backups.push('settings.json');
+      fs.mkdirSync(path.join(backupDir, 'claude'), { recursive: true });
+      fs.copyFileSync(settingsPath, path.join(backupDir, 'claude', 'settings.json'));
+      pushManifestEntry(manifest.backups, 'claude', 'settings.json');
     }
     settings.outputStyle = selectedStyle.slug;
     ok(`outputStyle = ${c.mag(selectedStyle.slug)}`);
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-    manifest.installed.push('settings.json');
+    pushManifestEntry(manifest.installed, 'claude', 'settings.json');
   } else {
-    pruneLegacyCodexSettings(targetDir, backupDir, manifest);
+    pruneLegacyCodexSettings(tgt, backupDir, manifest);
   }
 
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
@@ -486,7 +608,7 @@ function installCore(tgt, selectedStyle) {
   const uDest = path.join(targetDir, '.sage-uninstall.js');
   if (fs.existsSync(uSrc)) { fs.copyFileSync(uSrc, uDest); fs.chmodSync(uDest, '755'); }
 
-  return { targetDir, settingsPath, settings, manifest, manifestPath };
+  return { targetDir, settingsPath, settings, manifest, manifestPath, packPlan };
 }
 
 // ── Claude 后续 ──
@@ -536,10 +658,14 @@ async function main() {
   banner();
 
   if (target) {
-    if (!['claude', 'codex'].includes(target)) { fail('--target 必须是 claude 或 codex'); process.exit(1); }
+    if (!['claude', 'codex'].includes(target)) { fail(formatActionableError('--target 必须是 claude 或 codex', 'Try: node bin/install.js --target claude')); process.exit(1); }
     const style = await resolveInstallStyle(target);
+    const packPlan = await resolveProjectPackPlan(target);
     info(`输出风格: ${c.mag(style.slug)} (${style.label})`);
-    const ctx = installCore(target, style);
+    if (packPlan.path) {
+      info(`项目 packs: required=[${packPlan.required.join(', ')}] optional=[${packPlan.optional.join(', ')}] policy=${packPlan.optionalPolicy}`);
+    }
+    const ctx = installCore(target, style, packPlan);
     if (target === 'claude') await postClaude(ctx);
     else await postCodex();
     finish(ctx);
@@ -560,15 +686,23 @@ async function main() {
   switch (action) {
     case 'install-claude': {
       const style = await resolveInstallStyle('claude');
+      const packPlan = await resolveProjectPackPlan('claude');
       info(`输出风格: ${c.mag(style.slug)} (${style.label})`);
-      const ctx = installCore('claude', style);
+      if (packPlan.path) {
+        info(`项目 packs: required=[${packPlan.required.join(', ')}] optional=[${packPlan.optional.join(', ')}] policy=${packPlan.optionalPolicy}`);
+      }
+      const ctx = installCore('claude', style, packPlan);
       await postClaude(ctx);
       finish(ctx); break;
     }
     case 'install-codex': {
       const style = await resolveInstallStyle('codex');
+      const packPlan = await resolveProjectPackPlan('codex');
       info(`输出风格: ${c.mag(style.slug)} (${style.label})`);
-      const ctx = installCore('codex', style);
+      if (packPlan.path) {
+        info(`项目 packs: required=[${packPlan.required.join(', ')}] optional=[${packPlan.optional.join(', ')}] policy=${packPlan.optionalPolicy}`);
+      }
+      const ctx = installCore('codex', style, packPlan);
       await postCodex();
       finish(ctx); break;
     }
@@ -579,12 +713,57 @@ async function main() {
 
 function finish(ctx) {
   const tgt = ctx.manifest.target;
+  let reportPath = null;
+  if (ctx.packPlan && ctx.packPlan.root) {
+    reportPath = writeReportArtifact(ctx.packPlan.root, `install-${tgt}`, {
+      version: VERSION,
+      target: tgt,
+      timestamp: new Date().toISOString(),
+      cwd: process.cwd(),
+      pack_plan: {
+        required: ctx.packPlan.required,
+        optional: ctx.packPlan.optional,
+        selected: ctx.packPlan.selected,
+        optional_policy: ctx.packPlan.optionalPolicy,
+        sources: ctx.packPlan.sources,
+      },
+      pack_reports: ctx.manifest.pack_reports || [],
+      installed: ctx.manifest.installed || [],
+      backups: ctx.manifest.backups || [],
+    });
+  }
   divider('安装完成');
   console.log('');
   console.log(`  ${c.b('目标:')}     ${c.cyn(ctx.targetDir)}`);
   console.log(`  ${c.b('版本:')}     v${VERSION}`);
-  if (ctx.manifest.style) {
+  if (ctx.manifest.style && tgt !== 'codex') {
     console.log(`  ${c.b('风格:')}     ${c.mag(ctx.manifest.style)}`);
+  }
+  if (Array.isArray(ctx.manifest.project_packs) && ctx.manifest.project_packs.length > 0) {
+    console.log(`  ${c.b('Packs:')}    ${ctx.manifest.project_packs.join(', ')}`);
+  }
+  if (ctx.manifest.optional_policy) {
+    console.log(`  ${c.b('Pack策略:')} ${ctx.manifest.optional_policy}`);
+  }
+  if (Array.isArray(ctx.manifest.pack_reports) && ctx.manifest.pack_reports.length > 0) {
+    ctx.manifest.pack_reports.forEach((report) => {
+      const source = report.source ? ` source=${report.source}` : '';
+      const reason = report.reason ? ` reason=${report.reason}` : '';
+      console.log(`  ${c.b('Pack报告:')} ${report.pack}@${report.host} ${report.status}${source}${reason}`);
+    });
+  }
+  if (ctx.packPlan && ctx.packPlan.root) {
+    const projectLock = readProjectPackLock(ctx.packPlan.root);
+    if (projectLock) {
+      const bootstrap = syncProjectBootstrapArtifacts(ctx.packPlan.root, projectLock.lock);
+      const updatedDocs = bootstrap.docs.filter((entry) => entry.action !== 'skipped');
+      if (updatedDocs.length > 0) {
+        updatedDocs.forEach((entry) => console.log(`  ${c.b('文档同步:')} ${entry.action} ${entry.filePath}`));
+      }
+    }
+  }
+  if (reportPath) {
+    console.log(`  ${c.b('Report:')}   ${reportPath}`);
   }
   console.log(`  ${c.b('文件:')}     ${ctx.manifest.installed.length} 个安装, ${ctx.manifest.backups.length} 个备份`);
   console.log(`  ${c.b('卸载:')}     ${c.d(`npx code-abyss --uninstall ${tgt}`)}`);
@@ -601,7 +780,5 @@ module.exports = {
   detectCclineBin, copyRecursive, shouldSkip, SETTINGS_TEMPLATE,
   scanInvocableSkills,
   generateCommandContent,
-  generatePromptContent,
   installGeneratedCommands,
-  installGeneratedPrompts,
 };

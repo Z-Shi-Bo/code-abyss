@@ -6,18 +6,24 @@ const SKIP = ['__pycache__', '.pyc', '.pyo', '.egg-info', '.DS_Store', 'Thumbs.d
 
 function shouldSkip(name) { return SKIP.some(p => name.includes(p)); }
 
-function copyRecursive(src, dest) {
+function copyRecursive(src, dest, errors) {
   let stat;
   try { stat = fs.statSync(src); } catch (e) {
-    throw new Error(`复制失败: 源路径不存在 ${src} (${e.code})`);
+    const err = new Error(`复制失败: 源路径不存在 ${src} (${e.code})`);
+    if (errors) { errors.push({ src, dest, error: err }); return; }
+    throw err;
   }
   if (stat.isDirectory()) {
     if (shouldSkip(path.basename(src))) return;
     fs.mkdirSync(dest, { recursive: true });
     for (const f of fs.readdirSync(src)) {
       if (!shouldSkip(f)) {
-        try { copyRecursive(path.join(src, f), path.join(dest, f)); }
-        catch (e) { console.error(`  ⚠ 跳过: ${path.join(src, f)} (${e.message})`); }
+        try { copyRecursive(path.join(src, f), path.join(dest, f), errors); }
+        catch (e) {
+          const entry = { src: path.join(src, f), dest: path.join(dest, f), error: e };
+          if (errors) { errors.push(entry); }
+          else { console.error(`  ⚠ 跳过: ${entry.src} (${e.message})`); }
+        }
       }
     }
   } else {
@@ -85,9 +91,66 @@ function parseFrontmatter(content) {
     if (!m) {
       throw new Error(`frontmatter 第 ${index + 1} 行格式无效: ${rawLine}`);
     }
-    if (!UNSAFE_KEYS.has(m[1])) meta[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+    if (UNSAFE_KEYS.has(m[1])) return;
+    let value = m[2].trim();
+    // Strip inline comments (unquoted # followed by space or end-of-line)
+    value = stripInlineComment(value);
+    // Handle YAML inline array syntax: [A, B, C] → "A, B, C"
+    if (/^\[.+\]$/.test(value)) {
+      value = value.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).join(', ');
+    } else {
+      value = value.replace(/^["']|["']$/g, '');
+    }
+    meta[m[1]] = value;
   });
   return meta;
 }
 
-module.exports = { shouldSkip, copyRecursive, rmSafe, deepMergeNew, printMergeLog, parseFrontmatter, SKIP };
+function stripInlineComment(value) {
+  // Preserve # inside quotes; strip unquoted # followed by space or EOL
+  let inQuote = false;
+  let quoteChar = '';
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if (inQuote) {
+      if (ch === quoteChar) inQuote = false;
+    } else {
+      if (ch === '"' || ch === "'") {
+        inQuote = true;
+        quoteChar = ch;
+      } else if (ch === '#' && (i + 1 === value.length || value[i + 1] === ' ')) {
+        return value.slice(0, i).trimEnd();
+      }
+    }
+  }
+  return value;
+}
+
+function formatActionableError(message, suggestion) {
+  if (!suggestion) return message;
+  return `${message}. ${suggestion}`;
+}
+
+/**
+ * 轻量模板引擎 — 支持 {{key}} 变量替换 + {{#key}}...{{/key}} 条件包含 + {{^key}}...{{/key}} 反条件包含
+ * @param {string} template - 模板字符串
+ * @param {Object} data - 变量映射
+ * @returns {string} 渲染结果
+ */
+function renderTemplate(template, data) {
+  // {{^key}}...{{/key}} — 反条件（key 为 falsy 时包含）
+  template = template.replace(/\{\{\^(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_, key, body) => {
+    return data[key] ? '' : body;
+  });
+  // {{#key}}...{{/key}} — 正条件（key 为 truthy 时包含）
+  template = template.replace(/\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g, (_, key, body) => {
+    return data[key] ? body : '';
+  });
+  // {{key}} — 变量替换
+  template = template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    return data[key] !== undefined ? String(data[key]) : `{{${key}}}`;
+  });
+  return template;
+}
+
+module.exports = { shouldSkip, copyRecursive, rmSafe, deepMergeNew, printMergeLog, parseFrontmatter, stripInlineComment, formatActionableError, renderTemplate, SKIP };

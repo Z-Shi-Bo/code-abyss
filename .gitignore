@@ -51,3 +51,4 @@ node_modules/
 # Local config
 .env.local
 .ace-tool/
+.code-abyss/reports/

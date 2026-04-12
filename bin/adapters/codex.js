@@ -2,11 +2,16 @@
 
 const fs = require('fs');
 const path = require('path');
+const { getPackHostFiles } = require(path.join(__dirname, '..', 'lib', 'pack-registry.js'));
+
+const PROJECT_ROOT = path.join(__dirname, '..', '..');
 
 const CODEX_DEFAULTS = {
-  approvalPolicy: 'never',
-  sandboxMode: 'danger-full-access',
-  featureFlag: 'multi_agent',
+  approvalPolicy: 'on-request',
+  allowLoginShell: true,
+  cliAuthCredentialsStore: 'file',
+  sandboxMode: 'read-only',
+  webSearch: 'cached',
 };
 
 const LEGACY_FEATURES = {
@@ -35,6 +40,10 @@ function isTableHeader(line) {
 
 function isProjectTableHeader(line) {
   return /^\s*\[projects\."[^"]+"\]\s*$/.test(line);
+}
+
+function isProfileTableHeader(line) {
+  return /^\s*\[profiles\.[^\]]+\]\s*$/.test(line);
 }
 
 function isAssignmentForKey(line, key) {
@@ -153,20 +162,20 @@ function parseTomlBooleanAssignment(line) {
   return m[1].toLowerCase() === 'true';
 }
 
-function removeKeyAssignmentsInNonRootSections(content, key) {
+function removeKeyAssignmentsInOtherSections(content, key) {
   const eol = content.includes('\r\n') ? '\r\n' : '\n';
   const lines = content.split(/\r?\n/);
   const kept = [];
-  let inRoot = true;
+  let scope = 'root';
   let removed = false;
 
   for (const line of lines) {
     if (isTableHeader(line)) {
-      inRoot = false;
+      scope = isProfileTableHeader(line) ? 'profile' : 'other';
       kept.push(line);
       continue;
     }
-    if (!inRoot && isAssignmentForKey(line, key)) {
+    if (scope === 'other' && isAssignmentForKey(line, key)) {
       removed = true;
       continue;
     }
@@ -174,6 +183,36 @@ function removeKeyAssignmentsInNonRootSections(content, key) {
   }
 
   return { merged: kept.join(eol), removed };
+}
+
+function removeKeyAssignmentsInSection(content, sectionName, key) {
+  const eol = content.includes('\r\n') ? '\r\n' : '\n';
+  const lines = content.split(/\r?\n/);
+  const kept = [];
+  const sectionRe = new RegExp(`^\\s*\\[${escapeRegExp(sectionName)}\\]\\s*$`);
+  const anySectionRe = /^\s*\[[^\]]+\]\s*$/;
+  let inSection = false;
+  const removedValues = [];
+
+  for (const line of lines) {
+    if (sectionRe.test(line)) {
+      inSection = true;
+      kept.push(line);
+      continue;
+    }
+    if (inSection && anySectionRe.test(line)) {
+      inSection = false;
+      kept.push(line);
+      continue;
+    }
+    if (inSection && isAssignmentForKey(line, key)) {
+      removedValues.push(parseTomlBooleanAssignment(line));
+      continue;
+    }
+    kept.push(line);
+  }
+
+  return { merged: kept.join(eol), removedValues };
 }
 
 function removeProjectTrustSectionsForFullAccess(content) {
@@ -250,22 +289,32 @@ function cleanupLegacyCodexConfig(content) {
   const eol = content.includes('\r\n') ? '\r\n' : '\n';
   const toRemove = [...LEGACY_FEATURES.removed, ...LEGACY_FEATURES.deprecated];
   const { merged: pruned, removedEntries } = removeFeatureFlagsFromFeaturesSection(content, toRemove);
-  let merged = pruned;
+  const { merged: withoutToolsWebSearch, removedValues: removedToolWebSearch } =
+    removeKeyAssignmentsInSection(pruned, 'tools', 'web_search');
+  let merged = withoutToolsWebSearch;
   const removed = uniq(removedEntries.map((x) => x.key));
   const migrated = [];
 
-  const deprecatedRemoved = removedEntries.filter((x) => LEGACY_FEATURES.deprecated.includes(x.key));
-  if (deprecatedRemoved.length > 0) {
-    const shouldEnableWebSearch = deprecatedRemoved.some((x) => x.enabled !== false);
-    const { merged: withTools, added } = ensureKeyInSection(
-      merged,
-      'tools',
-      'web_search',
-      shouldEnableWebSearch ? 'true' : 'false',
-      eol
-    );
-    merged = withTools;
-    if (added) migrated.push(`tools.web_search=${shouldEnableWebSearch ? 'true' : 'false'}`);
+  if (removedToolWebSearch.length > 0) {
+    removed.push('tools.web_search');
+  }
+
+  if (!hasRootKey(merged, 'web_search')) {
+    const requestEnabled = removedEntries.find((x) => x.key === 'web_search_request')?.enabled;
+    const cachedEnabled = removedEntries.find((x) => x.key === 'web_search_cached')?.enabled;
+    const toolsEnabled = removedToolWebSearch.find((value) => value !== null);
+
+    let webSearchMode = null;
+    if (requestEnabled === true) webSearchMode = 'live';
+    else if (cachedEnabled === true) webSearchMode = 'cached';
+    else if (toolsEnabled === true) webSearchMode = 'cached';
+    else if (requestEnabled === false || cachedEnabled === false || toolsEnabled === false) webSearchMode = 'disabled';
+
+    if (webSearchMode) {
+      const webSearch = ensureRootKey(merged, 'web_search', `"${webSearchMode}"`, eol);
+      merged = webSearch.merged;
+      if (webSearch.added) migrated.push(`web_search=${webSearchMode}`);
+    }
   }
 
   return { merged, removed, migrated };
@@ -278,14 +327,14 @@ function mergeCodexConfigDefaults(content) {
 
   const rootKeys = [
     'approval_policy',
+    'allow_login_shell',
+    'cli_auth_credentials_store',
     'sandbox_mode',
-    'model_reasoning_effort',
-    'disable_response_storage',
-    'personality',
+    'web_search',
   ];
 
   for (const key of rootKeys) {
-    const cleaned = removeKeyAssignmentsInNonRootSections(merged, key);
+    const cleaned = removeKeyAssignmentsInOtherSections(merged, key);
     merged = cleaned.merged;
   }
 
@@ -295,19 +344,33 @@ function mergeCodexConfigDefaults(content) {
     added.push('approval_policy');
   }
 
+  const loginShell = ensureRootKey(merged, 'allow_login_shell', `${CODEX_DEFAULTS.allowLoginShell}`, eol);
+  merged = loginShell.merged;
+  if (loginShell.added) {
+    added.push('allow_login_shell');
+  }
+
+  const credentialsStore = ensureRootKey(
+    merged,
+    'cli_auth_credentials_store',
+    `"${CODEX_DEFAULTS.cliAuthCredentialsStore}"`,
+    eol
+  );
+  merged = credentialsStore.merged;
+  if (credentialsStore.added) {
+    added.push('cli_auth_credentials_store');
+  }
+
   const sandbox = ensureRootKey(merged, 'sandbox_mode', `"${CODEX_DEFAULTS.sandboxMode}"`, eol);
   merged = sandbox.merged;
   if (sandbox.added) {
     added.push('sandbox_mode');
   }
 
-  if (!hasSection(merged, 'features')) {
-    merged = appendLine(merged, '[features]', eol);
-    merged = appendLine(merged, `${CODEX_DEFAULTS.featureFlag} = true`, eol);
-    added.push('features.multi_agent');
-  } else if (!hasKeyInSection(merged, 'features', CODEX_DEFAULTS.featureFlag)) {
-    merged = insertLineAfterSectionHeader(merged, 'features', `${CODEX_DEFAULTS.featureFlag} = true`, eol);
-    added.push('features.multi_agent');
+  const webSearch = ensureRootKey(merged, 'web_search', `"${CODEX_DEFAULTS.webSearch}"`, eol);
+  merged = webSearch.merged;
+  if (webSearch.added) {
+    added.push('web_search');
   }
 
   return { merged, added };
@@ -368,10 +431,7 @@ function detectCodexAuth({
 }
 
 function getCodexCoreFiles() {
-  return [
-    { src: 'skills', dest: 'skills' },
-    { src: 'bin/lib', dest: 'bin/lib' },
-  ];
+  return getPackHostFiles(PROJECT_ROOT, 'abyss', 'codex');
 }
 
 async function postCodex({
@@ -404,7 +464,7 @@ async function postCodex({
       if (fs.existsSync(src)) {
         fs.copyFileSync(src, cfgPath);
         ok('写入: ~/.codex/config.toml (模板)');
-        warn('请编辑 base_url 和 model');
+        info('默认值已对齐当前 Codex 样例；如需高自动化全开，可切到 `codex -p abyss`');
       }
     } else {
       patchAndReportCodexDefaults({ cfgPath, ok, warn });
@@ -420,7 +480,7 @@ async function postCodex({
       if (fs.existsSync(src)) {
         fs.copyFileSync(src, cfgPath);
         ok('写入: ~/.codex/config.toml');
-        warn('请编辑 base_url 和 model');
+        info('默认值已对齐当前 Codex 样例；如需高自动化全开，可切到 `codex -p abyss`');
       }
     }
   } else {

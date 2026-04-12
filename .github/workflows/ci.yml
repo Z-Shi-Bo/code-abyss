@@ -18,6 +18,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run verify:skills
+      - run: npm run packs:check
+      - run: npm run packs:vendor:sync -- --check
       - run: node skills/tools/verify-change/scripts/change_analyzer.js --mode staged || node skills/tools/verify-change/scripts/change_analyzer.js --mode working
       - run: node skills/tools/verify-module/scripts/module_scanner.js .
       - run: node skills/tools/verify-quality/scripts/quality_checker.js .
@@ -50,13 +52,16 @@ jobs:
 
           export HOME="$abyss_home"
           export USERPROFILE="$abyss_home"
+          export CODE_ABYSS_GSTACK_SOURCE="$GITHUB_WORKSPACE/test/fixtures/gstack-codex-source"
 
           npx --yes --package "./$pkg_tgz" code-abyss --target claude -y
 
           test -f "$abyss_home/.claude/CLAUDE.md"
           test -d "$abyss_home/.claude/skills"
+          test -d "$abyss_home/.claude/skills/gstack/review"
           test -d "$abyss_home/.claude/commands"
           test -f "$abyss_home/.claude/commands/gen-docs.md"
+          test -f "$abyss_home/.claude/commands/review.md"
           test -f "$abyss_home/.claude/settings.json"
           test -f "$abyss_home/.claude/.sage-uninstall.js"
 
@@ -93,19 +98,20 @@ jobs:
 
           export HOME="$abyss_home"
           export USERPROFILE="$abyss_home"
+          export CODE_ABYSS_GSTACK_SOURCE="$GITHUB_WORKSPACE/test/fixtures/gstack-codex-source"
 
           npx --yes --package "./$pkg_tgz" code-abyss --target codex -y
 
-          test -f "$abyss_home/.codex/AGENTS.md"
-          test -d "$abyss_home/.codex/skills"
+          test ! -e "$abyss_home/.codex/AGENTS.md"
+          test -d "$abyss_home/.agents/skills"
+          test -d "$abyss_home/.agents/bin/lib"
+          test -f "$abyss_home/.agents/skills/gstack/review/SKILL.md"
           test -f "$abyss_home/.codex/config.toml"
-          test -d "$abyss_home/.codex/prompts"
-          test -f "$abyss_home/.codex/prompts/gen-docs.md"
           test ! -e "$abyss_home/.codex/settings.json"
           test -f "$abyss_home/.codex/.sage-uninstall.js"
 
           npx --yes --package "./$pkg_tgz" code-abyss --uninstall codex
 
           test ! -e "$abyss_home/.codex/AGENTS.md"
-          test ! -e "$abyss_home/.codex/skills"
+          test ! -e "$abyss_home/.agents/skills"
           test ! -e "$abyss_home/.codex/.sage-backup"

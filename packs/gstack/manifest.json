@@ -1,0 +1,52 @@
+{
+  "name": "gstack",
+  "description": "Pinned upstream gstack pack integrated as an auto-installed Codex skill runtime.",
+  "reporting": {
+    "label": "gstack",
+    "artifactPrefix": "gstack"
+  },
+  "upstream": {
+    "repo": "https://github.com/garrytan/gstack.git",
+    "commit": "c6e6a21d1a9a58e771403260ff6a134898f2dd02",
+    "version": "0.16.3.0"
+  },
+  "projectDefaults": {
+    "claude": "required",
+    "codex": "required"
+  },
+  "hosts": {
+    "claude": {
+      "autoInstall": true,
+      "sourceOverrideEnv": "CODE_ABYSS_GSTACK_SOURCE",
+      "runtimeDirs": ["bin", "browse", "review", "qa", "design"],
+      "runtimeFiles": ["ETHOS.md", "VERSION", "SKILL.md"],
+      "commandAliases": {
+        "open-gstack-browser": ["connect-chrome"]
+      },
+      "uninstall": {
+        "runtimeRoot": { "root": "claude", "path": "skills/gstack" },
+        "commandRoot": { "root": "claude", "path": "commands" },
+        "commandsFromRuntime": true,
+        "commandAliases": {
+          "open-gstack-browser": ["connect-chrome"]
+        }
+      }
+    },
+    "codex": {
+      "autoInstall": true,
+      "sourceOverrideEnv": "CODE_ABYSS_GSTACK_SOURCE",
+      "skipSkills": ["codex"],
+      "runtimeDirs": ["bin", "browse", "review", "qa", "design"],
+      "runtimeFiles": ["ETHOS.md", "VERSION"],
+      "pathRewrites": [
+        ["~/.claude/skills/gstack", "$GSTACK_ROOT"],
+        [".claude/skills/gstack", ".agents/skills/gstack"],
+        [".claude/skills/review", ".agents/skills/gstack/review"],
+        [".claude/skills", ".agents/skills"]
+      ],
+      "uninstall": {
+        "runtimeRoot": { "root": "agents", "path": "skills/gstack" }
+      }
+    }
+  }
+}

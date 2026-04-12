@@ -10,7 +10,7 @@ disable-model-invocation: false
 
 ## Skill Authoring Contract
 
-以下规则是 `skills/**/SKILL.md` 的正式 authoring contract；共享 registry、`run_skill.js`、Claude commands、Codex prompts、CI gate 全部以此为准。
+以下规则是 `skills/**/SKILL.md` 的正式 authoring contract；共享 registry、`run_skill.js`、Claude commands、Codex skills 安装与 CI gate 全部以此为准。
 
 ### 必填 frontmatter
 
@@ -27,13 +27,13 @@ argument-hint: <扫描路径>          # 可选
 必填字段：
 
 - `name`：唯一标识，必须是 kebab-case slug，仅允许小写字母、数字、连字符
-- `description`：会进入 Claude command frontmatter 与 Codex prompt 文本，不能为空
+- `description`：会进入 Claude command frontmatter，并应准确描述 skill 职责，不能为空
 - `user-invocable`：`true/false`，决定是否进入生成集合
 
 可选字段：
 
 - `allowed-tools`：逗号分隔工具名列表；省略时默认 `Read`
-- `argument-hint`：生成命令/提示词时展示参数说明
+- `argument-hint`：生成 Claude command 时展示参数说明
 - 其他 frontmatter 可保留在 `meta` 中，但不会自动进入生成物
 
 ### 分类与运行时推断
@@ -51,7 +51,7 @@ argument-hint: <扫描路径>          # 可选
 
 - 脚本型 skill 必须把唯一入口放在 `scripts/*.js`
 - `scripts/` 下若出现多个 `.js` 文件，registry 会 fail-fast 报错
-- `runtimeType=scripted` 时，Claude / Codex 产物都会调用各自的 `run_skill.js`
+- `runtimeType=scripted` 时，Claude command 会调用 `run_skill.js`；Codex 可在 `agents/openai.yaml` 的 `default_prompt` 中调用同一入口
 - `runtimeType=knowledge` 时，产物只读取对应 `SKILL.md`，不会尝试执行脚本
 - `kind` 与 kebab-case compatibility 镜像字段已从 registry 返回面移除；对外只暴露 normalized fields，raw frontmatter 仅保留在 `meta`
 
@@ -71,7 +71,7 @@ argument-hint: <扫描路径>          # 可选
 1. registry 扫描并标准化 `skills/**/SKILL.md`
 2. 仅 `userInvocable=true` 的 skill 进入 invocable 集合
 3. Claude 生成 `~/.claude/commands/*.md`
-4. Codex 生成 `~/.codex/prompts/*.md`
+4. Codex 直接从 `~/.agents/skills/` 发现 skill；若存在 `agents/openai.yaml`，则附加 UI metadata
 5. `run_skill.js` 仅负责 `runtimeType=scripted` 的执行编排
 
 ### 作者清单
@@ -88,7 +88,7 @@ argument-hint: <扫描路径>          # 可选
 ### 能力地图
 
 - `domains/`：知识型秘典，负责场景路由、原则、模板与执行纪律
-- `tools/`：可执行校验/生成关卡，既可被 slash command / custom prompt 直接调用，也可在流程中自动触发
+- `tools/`：可执行校验/生成关卡，可被 Claude slash command 调用，也可作为 Codex skill 被显式调用
 - `orchestration/`：协同规范与多 Agent 编排
 - `run_skill.js`：脚本型 skill 执行器，不负责知识路由
 
@@ -105,9 +105,9 @@ argument-hint: <扫描路径>          # 可选
 1. 安装器通过共享 registry 递归扫描 `skills/**/SKILL.md`
 2. Claude 与 Codex 使用同一 invocable skill 集合
 3. Claude 生成 `~/.claude/commands/*.md`
-4. Codex 生成 `~/.codex/prompts/*.md`
-5. `runtimeType=scripted` 时，双端都调用各自的 `~/.claude/skills/run_skill.js` / `~/.codex/skills/run_skill.js`
-6. `runtimeType=knowledge` 时，双端都退化为“先读 `SKILL.md`，再据秘典执行”
+4. Codex 从 `~/.agents/skills/**/SKILL.md` 直接发现 skill，`agents/openai.yaml` 仅提供可选 metadata
+5. `runtimeType=scripted` 时，脚本入口统一由 `run_skill.js` 负责编排
+6. `runtimeType=knowledge` 时，执行链退化为“先读 `SKILL.md`，再据秘典执行”
 7. `npm run verify:skills` 与 CI 会在生成前先校验整个 contract，任何无效 skill 都会阻断后续流程
 
 ## 目录结构

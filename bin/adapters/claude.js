@@ -2,11 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getDefaultStyle } = require(path.join(__dirname, '..', 'lib', 'style-registry.js'));
+const { getPackHostFiles } = require(path.join(__dirname, '..', 'lib', 'pack-registry.js'));
 
 const PROJECT_ROOT = path.join(__dirname, '..', '..');
-const DEFAULT_OUTPUT_STYLE = getDefaultStyle(PROJECT_ROOT, 'claude').slug;
 
+// Placeholder — resolved lazily by resolveSettingsTemplate()
 const SETTINGS_TEMPLATE = {
   $schema: 'https://json.schemastore.org/claude-code-settings.json',
   env: {
@@ -20,7 +20,7 @@ const SETTINGS_TEMPLATE = {
   alwaysThinkingEnabled: true,
   autoMemoryEnabled: true,
   model: 'opus',
-  outputStyle: DEFAULT_OUTPUT_STYLE,
+  outputStyle: '__DEFAULT_STYLE__',
   attribution: { commit: '', pr: '' },
   sandbox: {
     autoAllowBashIfSandboxed: true
@@ -44,12 +44,7 @@ const CCLINE_STATUS_LINE = {
 };
 
 function getClaudeCoreFiles() {
-  return [
-    { src: 'config/CLAUDE.md', dest: 'CLAUDE.md' },
-    { src: 'output-styles', dest: 'output-styles' },
-    { src: 'skills', dest: 'skills' },
-    { src: 'bin/lib', dest: 'bin/lib' },
-  ];
+  return getPackHostFiles(PROJECT_ROOT, 'abyss', 'claude');
 }
 
 function detectClaudeAuth({
@@ -95,9 +90,18 @@ async function configureCustomProvider(ctx, { ok }) {
   ok('provider 已配置');
 }
 
-function mergeSettings(ctx, { deepMergeNew, printMergeLog, c, ok }) {
+function resolveSettingsTemplate(projectRoot) {
+  const { getDefaultStyle } = require(path.join(__dirname, '..', 'lib', 'style-registry.js'));
+  const slug = getDefaultStyle(projectRoot || PROJECT_ROOT, 'claude').slug;
+  const template = JSON.parse(JSON.stringify(SETTINGS_TEMPLATE));
+  template.outputStyle = slug;
+  return template;
+}
+
+function mergeSettings(ctx, { deepMergeNew, printMergeLog, c, ok, projectRoot }) {
+  const resolved = resolveSettingsTemplate(projectRoot);
   const log = [];
-  deepMergeNew(ctx.settings, SETTINGS_TEMPLATE, '', log);
+  deepMergeNew(ctx.settings, resolved, '', log);
   printMergeLog(log, c);
   fs.writeFileSync(ctx.settingsPath, JSON.stringify(ctx.settings, null, 2) + '\n');
   ok('settings.json 合并完成');
@@ -153,8 +157,8 @@ async function postClaude({
 }
 
 module.exports = {
-  DEFAULT_OUTPUT_STYLE,
   SETTINGS_TEMPLATE,
+  resolveSettingsTemplate,
   CCLINE_STATUS_LINE,
   getClaudeCoreFiles,
   detectClaudeAuth,

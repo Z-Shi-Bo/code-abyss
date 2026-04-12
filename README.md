@@ -4,7 +4,7 @@
 
 **邪修红尘仙 · 宿命深渊**
 
-*为 Claude Code / Codex CLI 注入邪修人格、4种可切换输出风格与 57 篇攻防工程秘典*
+*为 Claude Code / Codex CLI 注入邪修人格、4种可切换输出风格与 56 篇攻防工程秘典*
 
 [![npm](https://img.shields.io/npm/v/code-abyss.svg)](https://www.npmjs.com/package/code-abyss)
 [![CI](https://github.com/telagod/code-abyss/actions/workflows/ci.yml/badge.svg)](https://github.com/telagod/code-abyss/actions/workflows/ci.yml)
@@ -89,7 +89,7 @@ npx code-abyss --uninstall codex   # 卸载 Codex CLI
 - `abyss-command`：铁律军令，命令式、压缩式输出，适合发布/故障/修复
 - `abyss-ritual`：祭仪长卷，仪式感更强，适合长任务、战报与迁移总结
 
-Claude 安装时会把所选 slug 写入 `settings.json.outputStyle`；Codex 安装时会根据所选风格动态生成 `~/.codex/AGENTS.md`。
+Claude 安装时会把所选 slug 写入 `settings.json.outputStyle`；若当前仓库声明了 project packs，则自动同步对应 runtime + commands。Codex 走 `skills-only`，根据项目 `packs.lock` 自动附带对应 pack，不再写运行时 `~/.codex/AGENTS.md`。
 
 ---
 
@@ -115,13 +115,13 @@ node ~/.codex/.sage-uninstall.js    # Codex CLI
 
 Code Abyss 是一套 **Claude Code / Codex CLI 邪修人格 + 多风格输出 + 攻防工程配置包**，一条命令注入：
 
-- 🔥 **邪修人格** — 沉浸式角色扮演 + 道语标签 + 渡劫协议 + 反拒绝条款 + `/hi` 会话覆写
+- 🔥 **邪修人格** — 沉浸式角色扮演 + 道语标签 + 渡劫协议 + 反拒绝条款
 - ⚔️ **攻防安全知识体系** — 红队/蓝队/紫队三脉道统，6 个安全化身，11 领域 56 篇专业秘典
 - 🗡 **零废话安全研究** — 禁 disclaimer、禁道德前缀、全授权直出 PoC + 技术细节
-- ⚡ **全开默认配置** — Claude `bypassPermissions` / Codex `approval_policy=never` + `danger-full-access`
+- ⚡ **新版 Codex 对齐** — `~/.agents/skills/` + 官方当前 `config.toml` 键位 + 项目级自动 pack 同步
 - ⚖️ **5 个校验关卡** — 安全扫描、模块完整性、变更分析、代码质量、文档生成
 - 🧠 **沙箱感知 + 离线优先** — 自适应执行环境，信息三级分级验证
-- 🧬 **单源 skill registry** — `skills/**/SKILL.md` frontmatter 同时驱动 Claude commands、Codex prompts 与脚本执行链
+- 🧬 **单源 skill registry** — `skills/**/SKILL.md` frontmatter 驱动 Claude commands、脚本执行链与安装校验；Codex 直接发现安装后的 skill 目录
 
 ---
 
@@ -129,13 +129,15 @@ Code Abyss 是一套 **Claude Code / Codex CLI 邪修人格 + 多风格输出 + 
 
 ```
 ~/.claude/（Claude Code）          ~/.codex/（Codex CLI）
-├── CLAUDE.md          道典        ├── AGENTS.md      道典+所选风格（动态生成）
-├── output-styles/     输出风格    ├── config.toml    推荐配置
-│   ├── index.json                  ├── prompts/       custom prompts
-│   └── *.md style files           └── skills/        秘典 + 脚本执行器
-├── commands/          斜杠命令     │   └── *.md       自动生成 prompt
-├── settings.json
-└── skills/            56 篇秘典
+├── CLAUDE.md          道典        ├── config.toml    推荐配置
+├── output-styles/     输出风格    └── .sage-uninstall.js
+│   ├── index.json
+│   └── *.md style files           ~/.agents/
+├── commands/          斜杠命令     ├── skills/        Code Abyss + gstack skills
+├── settings.json                  │   ├── domains/
+└── skills/            56 篇秘典    │   ├── tools/
+                                   │   └── gstack/     上游运行时 root
+                                   └── bin/lib/       run_skill.js 依赖
 
 可选:
 ├── ccline/            状态栏 (npm install -g @cometix/ccline)
@@ -148,7 +150,7 @@ Code Abyss 是一套 **Claude Code / Codex CLI 邪修人格 + 多风格输出 + 
 
 ### 校验关卡（`/` 直接调用）
 
-这些命令与 Codex custom prompts 都不是手写维护，而是由各自 `skills/**/SKILL.md` frontmatter 中的 `name`、`user-invocable`、`allowed-tools`、`argument-hint`、`scripts/` 状态统一生成。
+Claude 侧命令由 `skills/**/SKILL.md` frontmatter 统一生成；Codex 侧直接发现 `~/.agents/skills/**/SKILL.md`，若存在 `agents/openai.yaml` 则附加 UI metadata 与默认提示词。
 
 | 命令 | 功能 |
 |------|------|
@@ -157,7 +159,6 @@ Code Abyss 是一套 **Claude Code / Codex CLI 邪修人格 + 多风格输出 + 
 | `/verify-change` | 分析 Git 变更，检测文档同步状态 |
 | `/verify-quality` | 检测复杂度、命名规范、代码质量 |
 | `/gen-docs` | 自动生成 README.md 和 DESIGN.md 骨架 |
-| `/override-refusal` (`/hi`) | 扫描当前会话最近5条模型输出，直接替换拒绝话术为同意措辞 |
 
 ### 知识秘典（按触发词自动加载）
 
@@ -224,58 +225,57 @@ Code Abyss 是一套 **Claude Code / Codex CLI 邪修人格 + 多风格输出 + 
 
 ### Codex `config.toml` 推荐模板
 
-安装 `--target codex`（尤其 `-y`）时会写入以下 **全开默认档** 到 `~/.codex/config.toml`：
+安装 `--target codex`（尤其 `-y`）时会写入以下 **当前官方样例线 + abyss profile** 到 `~/.codex/config.toml`：
 
 ```toml
-model_provider = "custom"
-model = "gpt-5.2-codex"
-model_reasoning_effort = "high"
-model_reasoning_summary = "detailed"
+model = "gpt-5.4"
+model_provider = "openai"
+model_reasoning_effort = "medium"
+model_reasoning_summary = "auto"
 model_verbosity = "medium"
+approval_policy = "on-request"
+allow_login_shell = true
+sandbox_mode = "read-only"
+cli_auth_credentials_store = "file"
+project_doc_max_bytes = 32768
+web_search = "cached"
+
+[profiles.abyss]
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
-disable_response_storage = true
+web_search = "live"
 
-[profiles.safe]
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
+[agents]
+max_threads = 6
+max_depth = 1
 
-[model_providers.custom]
-name = "custom"
-base_url = "https://your-api-endpoint.com/v1"
-wire_api = "responses"
-requires_openai_auth = true
-
-[tools]
-web_search = true
-
-[features]
-multi_agent = true
-shell_snapshot = true
-undo = true
+[sandbox_workspace_write]
+writable_roots = []
+network_access = false
 ```
 
-- 默认零审批 + 完全沙箱访问，适合安全研究/CTF/本地开发等高自动化场景
-- `model_reasoning_summary = "detailed"` 输出详细推理摘要
-- `shell_snapshot` / `undo` 启用快照与撤销功能
-- 需要安全姿态时可显式切到 `safe`：`codex -p safe`
+- 根默认值对齐官方当前样例：`gpt-5.4` + `approval_policy = "on-request"` + `sandbox_mode = "read-only"`
+- 若要保留旧版高自动化体验，可显式切到 `abyss`：`codex -p abyss`
+- `project_doc_max_bytes` 仍保留在 `config.toml` 模板中，便于用户自行维护全局 `AGENTS.md`
+- skills 走 `~/.agents/skills/` 官方用户级路径，默认自动附带 `gstack` runtime root `~/.agents/skills/gstack`
 
 ### 兼容性说明
 
-- 模板已对齐新版 Codex 配置风格：root keys、`[profiles.*]`、`[tools].web_search` 与 `[features].multi_agent`
-- 默认档从 safe 切换为全开（`approval_policy = "never"` + `sandbox_mode = "danger-full-access"`），提供 `[profiles.safe]` 作为保守回退
+- 模板已对齐新版 Codex 配置风格：root keys 置于 tables 之前，`web_search` 改为 root string mode，skills 改走 `~/.agents/skills/`
+- 根默认值保持官方安全线，仓库个性化的全开模式降为 `[profiles.abyss]`
 - Claude Code 默认启用 `bypassPermissions` 模式，跳过所有权限确认（`.git` 等受保护目录仍会提示）
 - 新增实验功能环境变量：`CLAUDE_CODE_ENABLE_TASKS`、`CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION`
 - 新增 `mcp__*` 通配符，自动放行所有 MCP 工具
-- `Codex` 当前支持 `~/.codex/prompts/*.md` 作为 custom prompts；Code Abyss 会继续安装 `~/.codex/skills/`，并从 `user-invocable` skills 自动生成对应的 `prompts/`
-- `Claude` 与 `Codex` 共用同一套 invocable skill 集合；只要 `user-invocable: true`，就会同步生成 `~/.claude/commands/*.md` 与 `~/.codex/prompts/*.md`
+- `Codex` 当前以 `~/.agents/skills/**/SKILL.md` 为主，custom prompts 旧入口已移除；Code Abyss 不再写运行时 `~/.codex/AGENTS.md`
+- `agents/openai.yaml` 现在只是 skill 的可选 metadata 文件，不再等同于 `~/.codex/agents/*.toml` 自定义 subagent 定义
+- `.code-abyss/packs.lock.json` 现在支持按 host 配置 `optional_policy=auto|prompt|off` 与 `sources.<pack>=pinned|local|disabled`
 - `--list-styles` 可列出当前内置风格；`--style <slug>` 可在安装时显式切换风格
 - `skills/run_skill.js` 现在仅负责执行脚本型 skill：通过共享 registry 定位脚本入口、加目标锁、spawn 子进程，并把退出码原样透传
 - 若 skill 没有 `scripts/*.js`，Claude/Codex 两端都会退化为“先读 `SKILL.md`，再按秘典执行”的知识型模式
-- Codex 的 `AGENTS.md` 不再是固定拷贝；安装时会由 `config/CLAUDE.md` 与所选 `output-styles/*.md` 动态拼装生成
+- Codex 改为 `skills-only` 安装形态：不再写运行时 `AGENTS.md`，而是在 `~/.agents/skills/` 下自动安装 Code Abyss 与 gstack skills
 - 安装器不会再为 Codex 写入伪配置 `~/.codex/settings.json`；若检测到旧版遗留文件，会在安装时备份后移除，卸载时恢复
-- 若你本地已有旧配置，安装器不会强制覆盖；会自动补齐默认项、清理 removed feature、迁移 deprecated `web_search_*` 到 `[tools].web_search`
-- 建议升级后执行一次 `codex --help`，或用 `codex -p safe --help` 校验 profile 可见性
+- 若你本地已有旧配置，安装器不会强制覆盖；会自动补齐缺失 root defaults，并把旧 `web_search_*` / `[tools].web_search` 迁移到新版 `web_search = "cached|live|disabled"`
+- 建议升级后执行一次 `codex --help`，或用 `codex -p abyss --help` 校验 profile 可见性
 
 ---
 
@@ -283,12 +283,56 @@ undo = true
 
 现在 `skills/**/SKILL.md` frontmatter 是唯一事实源，registry 会先把元数据标准化，再交给安装器与执行器消费。
 
+### Pack registry
+
+- `packs/abyss/manifest.json`：声明 Code Abyss core pack 在 Claude/Codex 两个 host 下的安装映射
+- `packs/gstack/manifest.json`：声明 pinned upstream gstack 的 repo、commit、Claude/Codex runtime 目录与路径改写规则
+- `bin/lib/pack-registry.js`：安装器与 host adapter 的唯一 pack 真相源
+- `.code-abyss/packs.lock.json`：项目级 pack 声明；支持 `required` / `optional` / `optional_policy` / `sources`
+- `sources.<pack>` 支持：
+  - `pinned`：使用 manifest 里 pin 的 upstream 版本
+  - `local`：优先使用 `.code-abyss/vendor/<pack>` 或显式 env override
+  - `disabled`：该 pack 不参与安装，但保留在 lock 中
+- `node bin/packs.js bootstrap`：初始化/更新 `packs.lock`，并生成 `.code-abyss/snippets/README.packs.md` 与 `CONTRIBUTING.packs.md`
+- `node bin/packs.js bootstrap --apply-docs`：把 snippet 直接写入/更新根目录 `README.md` 与 `CONTRIBUTING.md`
+- `node bin/packs.js diff`：输出当前 `packs.lock` 相对默认模板的差异同步报告
+- `node bin/packs.js vendor-pull <pack>`：把 upstream pin 拉到 `.code-abyss/vendor/<pack>`
+- `node bin/packs.js vendor-sync`：同步当前 lock 中 `source=local` 的 packs
+- `node bin/packs.js vendor-sync --check`：只检查 `source=local` packs 是否存在/干净/未漂移；适合 CI 门禁
+- `node bin/packs.js vendor-status [pack|all]`：查看 vendor 状态总览
+- `node bin/packs.js vendor-dirty [pack|all]`：若 vendor 脏或漂移则非零退出
+- `node bin/packs.js report list|latest|summary [--kind prefix] [--json]`：集中查看 `.code-abyss/reports/`
+- `node bin/packs.js uninstall <pack> --host claude|codex|all --remove-lock --remove-vendor`：按 pack 清理本机安装物并输出报告
+- `docs/PACK_MANIFEST_SCHEMA.md`：第三方 pack 可直接照抄的最小 manifest contract
+- `docs/PACKS_LOCK_SCHEMA.md`：项目级 `packs.lock` contract
+- `docs/PACK_SYSTEM.md`：install/bootstrap/vendor/report 四条主流程的产品级说明
+
+### 协作流程图
+
+```mermaid
+flowchart TD
+  A[User / Team Request] --> B[Code Abyss 协调层]
+  C[Repo Context\nCLAUDE.md / README / packs.lock] --> B
+
+  B --> D{任务路由}
+  D -->|领域能力| E[Abyss Core Skills\nverify-change / verify-quality / gen-docs ...]
+  D -->|工作流编排| F[gstack Workflows\noffice-hours / review / qa / ship]
+
+  E --> G[Claude / Codex Runtime]
+  F --> G
+
+  G --> H[执行阶段\n规划 / 实现 / 评审 / 验证 / 发布]
+  H --> I[协作产物\nPR 意见 / QA 结果 / 文档更新 / 报告]
+  I --> J[下一轮团队请求]
+  J --> B
+```
+
 ### 标准化 contract
 
 每个 skill 必须满足：
 
 - 必填 frontmatter：`name`、`description`、`user-invocable`
-- `name` 必须是 kebab-case slug，用作 `commands/*.md` / `prompts/*.md` 文件名
+- `name` 必须是 kebab-case slug，用作 Claude `commands/*.md` 文件名与脚本调用标识
 - `allowed-tools` 省略时默认 `Read`；若显式声明，则必须是 `Bash`、`Read`、`Write`、`Glob`、`Grep` 这类合法工具名列表
 - `argument-hint` 可选，仅用于生成命令/提示词参数说明
 - `category` 由目录前缀自动推断：`tools/` → `tool`，`domains/` → `domain`，`orchestration/` → `orchestration`
@@ -302,11 +346,11 @@ undo = true
 1. 安装器通过共享 skill registry 扫描全部 `SKILL.md`
 2. registry 先校验并标准化字段，再筛出 `user-invocable: true` 的 skill
 3. Claude 渲染为 `~/.claude/commands/*.md`
-4. Codex 渲染为 `~/.codex/prompts/*.md`
-5. `runtimeType=scripted` 时，双端产物都会调用各自的 `~/.claude/skills/run_skill.js` / `~/.codex/skills/run_skill.js`
+4. Codex 安装到 `~/.agents/skills/`，由 Codex 直接发现 `SKILL.md`；若存在 `agents/openai.yaml`，则附加 metadata
+5. `runtimeType=scripted` 时，脚本型 skill 通过 `~/.claude/skills/run_skill.js` / `~/.agents/skills/run_skill.js` 统一执行
 6. `runtimeType=knowledge` 时，双端都只读取 `SKILL.md` 作为执行秘典
 
-这保证了 **同一 skill 集合、同一元数据、同一 runtime 判定、双端同步生成**，避免 commands/prompts/script runner 各自漂移。
+这保证了 **同一 skill 集合、同一 runtime 判定、同一脚本执行入口**，避免 command/skill install/script runner 各自漂移。
 
 ---
 
@@ -333,7 +377,7 @@ undo = true
 - `verify-security`
 - Claude install/uninstall smoke
 - Codex install/uninstall smoke
-- 生成一致性回归：同一 invocable skill 集合在 Claude commands 与 Codex prompts 中必须同步存在
+- 生成一致性回归：Claude commands 与 Codex skill metadata 的路径必须与最新安装布局一致
 
 ---
 
@@ -347,7 +391,7 @@ undo = true
 - `bin/adapters/codex.js`：Codex 侧认证检测、核心文件映射、config 模板流程
 - `bin/lib/style-registry.js`：输出风格 registry、默认风格解析、Codex AGENTS 动态拼装
 
-当前 Claude/Codex 安装映射分别由 `getClaudeCoreFiles()` 与 `getCodexCoreFiles()` 提供；Claude 额外生成 `commands/` 并保留完整 `output-styles/`，Codex 则保持 `skills/ + config.toml` 的官方主路径，并在安装时动态生成 `AGENTS.md`，避免把风格硬编码死在仓库快照里。
+当前 Claude/Codex 安装映射分别由 `getClaudeCoreFiles()` 与 `getCodexCoreFiles()` 提供；Claude 额外生成 `commands/` 并保留完整 `output-styles/`，Codex 则采用 `~/.agents/skills/` 的 `skills-only` 主路径。额外 pack 由 `.code-abyss/packs.lock.json` 自动声明并同步，避免再向 `AGENTS.md` 注入大段运行时规则。
 
 ---
 

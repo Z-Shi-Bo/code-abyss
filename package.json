@@ -1,7 +1,7 @@
 {
   "name": "code-abyss",
   "version": "2.0.7",
-  "description": "为 Claude Code / Codex CLI 注入邪修人格、4种可切换输出风格与 57 篇攻防工程秘典",
+  "description": "为 Claude Code / Codex CLI 注入邪修人格、4种可切换输出风格与 56 篇攻防工程秘典",
   "keywords": [
     "claude",
     "claude-code",
@@ -28,6 +28,7 @@
     "bin/",
     "config/",
     "output-styles/",
+    "packs/",
     "skills/",
     "LICENSE",
     "README.md"
@@ -37,7 +38,18 @@
   },
   "scripts": {
     "test": "jest",
-    "verify:skills": "node bin/verify-skills-contract.js"
+    "verify:skills": "node bin/verify-skills-contract.js",
+    "packs:init": "node bin/packs.js init",
+    "packs:bootstrap": "node bin/packs.js bootstrap",
+    "packs:update": "node bin/packs.js update",
+    "packs:check": "node bin/packs.js check",
+    "packs:diff": "node bin/packs.js diff",
+    "packs:report": "node bin/packs.js report",
+    "packs:vendor:pull": "node bin/packs.js vendor-pull",
+    "packs:vendor:sync": "node bin/packs.js vendor-sync",
+    "packs:vendor:status": "node bin/packs.js vendor-status",
+    "packs:vendor:dirty": "node bin/packs.js vendor-dirty",
+    "packs:uninstall": "node bin/packs.js uninstall"
   },
   "dependencies": {
     "@inquirer/prompts": "^7.10.1"

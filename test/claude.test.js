@@ -5,8 +5,8 @@ const os = require('os');
 const path = require('path');
 
 const {
-  DEFAULT_OUTPUT_STYLE,
   SETTINGS_TEMPLATE,
+  resolveSettingsTemplate,
   getClaudeCoreFiles,
   detectClaudeAuth,
 } = require('../bin/adapters/claude');
@@ -25,15 +25,23 @@ describe('claude adapter', () => {
   test('SETTINGS_TEMPLATE 保持关键字段', () => {
     expect(SETTINGS_TEMPLATE).toHaveProperty('env');
     expect(SETTINGS_TEMPLATE).toHaveProperty('permissions');
-    expect(SETTINGS_TEMPLATE).toHaveProperty('outputStyle', DEFAULT_OUTPUT_STYLE);
+    expect(SETTINGS_TEMPLATE.outputStyle).toBe('__DEFAULT_STYLE__');
+  });
+
+  test('resolveSettingsTemplate 解析真实默认 slug', () => {
+    const projectRoot = path.join(__dirname, '..');
+    const resolved = resolveSettingsTemplate(projectRoot);
+    expect(resolved.outputStyle).not.toBe('__DEFAULT_STYLE__');
+    expect(typeof resolved.outputStyle).toBe('string');
+    expect(resolved.outputStyle.length).toBeGreaterThan(0);
   });
 
   test('getClaudeCoreFiles: 返回 Claude 核心映射', () => {
     expect(getClaudeCoreFiles()).toEqual([
-      { src: 'config/CLAUDE.md', dest: 'CLAUDE.md' },
-      { src: 'output-styles', dest: 'output-styles' },
-      { src: 'skills', dest: 'skills' },
-      { src: 'bin/lib', dest: 'bin/lib' },
+      { src: 'config/CLAUDE.md', dest: 'CLAUDE.md', root: 'claude' },
+      { src: 'output-styles', dest: 'output-styles', root: 'claude' },
+      { src: 'skills', dest: 'skills', root: 'claude' },
+      { src: 'bin/lib', dest: 'bin/lib', root: 'claude' },
     ]);
   });
 

@@ -1,26 +1,31 @@
-model_provider = "custom"
-model = "gpt-5.2-codex"
-model_reasoning_effort = "high"
-model_reasoning_summary = "detailed"
+model = "gpt-5.4"
+model_provider = "openai"
+model_reasoning_effort = "medium"
+model_reasoning_summary = "auto"
 model_verbosity = "medium"
+approval_policy = "on-request"
+allow_login_shell = true
+sandbox_mode = "read-only"
+cli_auth_credentials_store = "file"
+project_doc_max_bytes = 32768
+web_search = "cached"
+
+[profiles.abyss]
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
-disable_response_storage = true
+web_search = "live"
 
-[profiles.safe]
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
+[agents]
+max_threads = 6
+max_depth = 1
 
-[model_providers.custom]
-name = "custom"
-base_url = "https://your-api-endpoint.com/v1"
-wire_api = "responses"
-requires_openai_auth = true
+[sandbox_workspace_write]
+writable_roots = []
+network_access = false
 
-[tools]
-web_search = true
-
-[features]
-multi_agent = true
-shell_snapshot = true
-undo = true
+# Optional custom provider example:
+# [model_providers.custom]
+# name = "Custom"
+# base_url = "https://your-api-endpoint.com/v1"
+# wire_api = "responses"
+# requires_openai_auth = true

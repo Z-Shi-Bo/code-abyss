@@ -35,7 +35,7 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 - 脚本型 skill 位于 `skills/**/scripts/*.js`
 - 每个 skill 的权威元数据来自对应 `SKILL.md` frontmatter
 - 共享 registry（`bin/lib/skill-registry.js`）负责扫描、分类、脚本入口解析
-- Claude commands、Codex prompts、`skills/run_skill.js` 都消费同一份 skill 清单
+- Claude commands、Codex skill 安装、`skills/run_skill.js` 都消费同一份 skill 清单
 
 这样避免安装器、执行器、双端生成器各自维护一套 discovery 逻辑。
 
@@ -43,7 +43,8 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 
 根据目标 CLI 选择配置文件：
 - Claude Code CLI：`~/.claude/CLAUDE.md`
-- Codex CLI：`~/.codex/AGENTS.md`
+- Codex CLI：`~/.codex/config.toml`
+- Codex 用户级 skills：`~/.agents/skills/`
 
 安装脚本通过 `--target claude|codex`（或交互选择）确定写入位置，确保用户级配置不污染项目目录。
 
@@ -56,11 +57,11 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 
 ### 5. Skill registry 与双端生成
 
-- 问题：skills 元数据发现、脚本执行、Claude commands、Codex prompts 曾各自扫描，容易漂移。
+- 问题：skills 元数据发现、脚本执行、Claude commands、Codex 侧安装规则曾各自扫描，容易漂移。
 - 决策：以 `SKILL.md` frontmatter 为唯一事实源，抽出共享 registry，统一产出 `name`、`description`、`userInvocable`、`allowedTools`、`argumentHint`、`relPath`、`category`、`runtimeType`、`scriptPath`、`meta` 等标准化字段；`kind` 与 kebab-case compatibility 镜像字段已从 registry public surface 移除。
 - 决策：`category` 按目录前缀自动推断（`tools` / `domains` / `orchestration`），`runtimeType` 按脚本入口自动推断（`scripted` / `knowledge`）。
 - 决策：registry 在扫描阶段 fail-fast 校验 frontmatter 解析、必填字段、合法工具名、重复 skill name、多脚本入口，拒绝把脏数据交给后续生成链。
-- 取舍：多了一层 registry 抽象，但 commands/prompts/run_skill/CI gate 共享同一条契约，测试面更集中，错误更早暴露。
+- 取舍：多了一层 registry 抽象，但 commands/skill-install/run_skill/CI gate 共享同一条契约，测试面更集中，错误更早暴露。
 
 ### 6. `run_skill.js` 职责收窄
 
@@ -81,7 +82,33 @@ Code Abyss 是 CLI 助手的个性化配置方案（支持 Claude Code CLI 与 C
 - 决策：新增 `output-styles/index.json` 作为 style registry，统一维护 `slug`、`label`、`description`、`file`、`targets`、`default`。
 - 决策：Claude 继续安装整个 `output-styles/` 目录，并把 `settings.json.outputStyle` 写为所选 style slug。
 - 决策：Codex 不再直接复制仓库内静态 `config/AGENTS.md`，改为安装时动态拼接 `config/CLAUDE.md + output-styles/<slug>.md` 生成目标 `AGENTS.md`。
+- 决策：Codex skills 改对齐官方当前规范，安装到 `~/.agents/skills/`；`agents/openai.yaml` 只负责可选 metadata，而不是旧 `prompts/` 入口。
 - 取舍：安装器多了一层 registry 与模板拼装逻辑，但换来多风格切换能力，并消除 Codex 风格与仓库 snapshot 的长期漂移。
+
+### 9. Pack registry（进行中）
+
+- 问题：`abyss` core 资源与 `gstack` 融合逻辑分别散落在 adapter、installer、测试中，host 映射与 upstream pin 容易再次漂移。
+- 决策：新增 `packs/abyss/manifest.json` 与 `packs/gstack/manifest.json`，把 host 文件映射、upstream repo/commit、runtime 目录、路径改写规则集中到 manifest。
+- 决策：`bin/lib/pack-registry.js` 成为安装器读取 pack 元数据的唯一入口；Claude/Codex adapter 只消费 registry，不再手写 core file 列表。
+- 取舍：多一层 manifest 解析，但后续扩展 Claude 侧 gstack、更多第三方 pack 或 pack 锁文件时不必再次散改 installer 常量。
+
+### 10. 项目级 packs.lock（进行中）
+
+- 问题：上一阶段的 gstack 自动融合是“全局默认行为”，缺乏项目粒度开关，容易把不相关仓库也拖入同一套 workflow。
+- 决策：新增 `.code-abyss/packs.lock.json`，支持按 host 声明 `required` / `optional` packs；安装器从当前工作目录向上查找最近的 lock 文件。
+- 决策：安装器只自动同步 lock 中的 `required` packs；本仓当前为 Claude/Codex 都声明 `gstack`，因此保持“零手动触发”的体验。
+- 取舍：多了一层项目配置解析，但把“自动化”从全局硬编码降成项目声明，更适合团队协作与多仓共存。
+
+### 11. optional source 策略 + bootstrap/diff（进行中）
+
+- 问题：`optional` pack 之前只有装/不装，没有来源控制；项目初始化也只能手写 lock 文件，缺少推荐文档片段与差异报告。
+- 决策：`packs.lock` 扩展 `sources.<pack>=pinned|local|disabled`。`pinned` 走 pack manifest 的 upstream pin，`local` 走 `.code-abyss/vendor/<pack>` 或 env override，`disabled` 明确跳过安装。
+- 决策：新增 `bin/packs.js bootstrap`，一次生成/更新 `packs.lock` 与 `.code-abyss/snippets/{README,CONTRIBUTING}.packs.md`；`--apply-docs` 可把 snippet 回写到现有文档。
+- 决策：新增 `vendor-pull` / `vendor-sync`，让 `source=local` 不再依赖手工拷贝 vendor 源。
+- 决策：新增 `uninstall <pack>`，按 host 清理指定 pack 的运行时残留，并可选同步更新 lock 与 vendor。
+- 决策：新增 `bin/packs.js diff`，输出当前 lock 相对默认模板的 host/pack/source/policy 差异。
+- 决策：安装 manifest 新增 `pack_reports`，安装完成与卸载时按 pack 维度输出摘要。
+- 取舍：schema 更复杂，但换来可审计的 pack 来源控制、项目引导闭环，以及更清晰的安装/卸载报告。
 
 | 债务 | 原因 | 计划 |
 |------|------|------|

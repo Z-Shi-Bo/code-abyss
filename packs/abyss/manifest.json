@@ -1,0 +1,24 @@
+{
+  "name": "abyss",
+  "description": "Core Code Abyss pack: persona config, output styles, skills, and shared runtime libs.",
+  "reporting": {
+    "label": "Code Abyss core",
+    "artifactPrefix": "abyss-core"
+  },
+  "hosts": {
+    "claude": {
+      "files": [
+        { "src": "config/CLAUDE.md", "dest": "CLAUDE.md", "root": "claude" },
+        { "src": "output-styles", "dest": "output-styles", "root": "claude" },
+        { "src": "skills", "dest": "skills", "root": "claude" },
+        { "src": "bin/lib", "dest": "bin/lib", "root": "claude" }
+      ]
+    },
+    "codex": {
+      "files": [
+        { "src": "skills", "dest": "skills", "root": "agents" },
+        { "src": "bin/lib", "dest": "bin/lib", "root": "agents" }
+      ]
+    }
+  }
+}

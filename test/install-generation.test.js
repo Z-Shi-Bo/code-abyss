@@ -7,9 +7,7 @@ const os = require('os');
 const {
   scanInvocableSkills,
   generateCommandContent,
-  generatePromptContent,
   installGeneratedCommands,
-  installGeneratedPrompts,
 } = require('../bin/install');
 
 describe('generateCommandContent', () => {
@@ -71,37 +69,6 @@ describe('generateCommandContent', () => {
     expect(content).toContain('description: "has \\"quotes\\" inside"');
   });
 
-  test('Codex prompt 使用同源 artifact spec', () => {
-    const meta = {
-      name: 'gen-docs',
-      description: '文档生成器',
-      argumentHint: '<模块路径> [--force]',
-      allowedTools: 'Bash, Read, Write, Glob',
-    };
-
-    const content = generatePromptContent(meta, 'tools/gen-docs', 'scripted');
-
-    expect(content).toContain('Arguments: <模块路径> [--force]');
-    expect(content).toContain('Read `~/.codex/skills/tools/gen-docs/SKILL.md` before acting.');
-    expect(content).toContain('Then run `node ~/.codex/skills/run_skill.js gen-docs $ARGUMENTS`.');
-  });
-
-  test('Claude/Codex 同一 skill 集合同源生成', () => {
-    const meta = {
-      name: 'verify-change',
-      description: '变更校验',
-      argumentHint: '<path>',
-      allowedTools: 'Bash, Read',
-    };
-
-    const command = generateCommandContent(meta, 'tools/verify-change', 'scripted');
-    const prompt = generatePromptContent(meta, 'tools/verify-change', 'scripted');
-
-    expect(command).toContain('~/.claude/skills/tools/verify-change/SKILL.md');
-    expect(prompt).toContain('~/.codex/skills/tools/verify-change/SKILL.md');
-    expect(command).toContain('run_skill.js verify-change $ARGUMENTS');
-    expect(prompt).toContain('run_skill.js verify-change $ARGUMENTS');
-  });
 });
 
 describe('installGeneratedCommands', () => {
@@ -113,7 +80,7 @@ describe('installGeneratedCommands', () => {
     backupDir = path.join(tmpDir, 'backup');
     fs.mkdirSync(targetDir, { recursive: true });
     fs.mkdirSync(backupDir, { recursive: true });
-    manifest = { installed: [], backups: [] };
+    manifest = { target: 'claude', installed: [], backups: [] };
   });
 
   afterEach(() => {
@@ -152,8 +119,8 @@ describe('installGeneratedCommands', () => {
     expect(count).toBe(2);
     expect(fs.existsSync(path.join(targetDir, 'commands', 'gen-docs.md'))).toBe(true);
     expect(fs.existsSync(path.join(targetDir, 'commands', 'verify-module.md'))).toBe(true);
-    expect(manifest.installed).toContain('commands/gen-docs.md');
-    expect(manifest.installed).toContain('commands/verify-module.md');
+    expect(manifest.installed).toContainEqual({ root: 'claude', path: 'commands/gen-docs.md' });
+    expect(manifest.installed).toContainEqual({ root: 'claude', path: 'commands/verify-module.md' });
   });
 
   test('已存在的 command 文件被备份', () => {
@@ -167,9 +134,9 @@ describe('installGeneratedCommands', () => {
 
     installGeneratedCommands(skillsSrc, targetDir, backupDir, manifest);
 
-    expect(fs.existsSync(path.join(backupDir, 'commands', 'gen-docs.md'))).toBe(true);
-    expect(fs.readFileSync(path.join(backupDir, 'commands', 'gen-docs.md'), 'utf8')).toBe('old content');
-    expect(manifest.backups).toContain('commands/gen-docs.md');
+    expect(fs.existsSync(path.join(backupDir, 'claude', 'commands', 'gen-docs.md'))).toBe(true);
+    expect(fs.readFileSync(path.join(backupDir, 'claude', 'commands', 'gen-docs.md'), 'utf8')).toBe('old content');
+    expect(manifest.backups).toContainEqual({ root: 'claude', path: 'commands/gen-docs.md' });
 
     const newContent = fs.readFileSync(path.join(cmdsDir, 'gen-docs.md'), 'utf8');
     expect(newContent).toContain('name: gen-docs');
@@ -202,64 +169,6 @@ describe('installGeneratedCommands', () => {
     expect(content).toMatch(/^---\n/);
     expect(content).toContain('一气呵成');
     expect(content).toContain('run_skill.js gen-docs');
-  });
-});
-
-describe('installGeneratedPrompts', () => {
-  let tmpDir, targetDir, backupDir, manifest;
-
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-prompt-test-'));
-    targetDir = path.join(tmpDir, 'target');
-    backupDir = path.join(tmpDir, 'backup');
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.mkdirSync(backupDir, { recursive: true });
-    manifest = { installed: [], backups: [] };
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  function makeSkillDir(base, relPath, frontmatter, withScript) {
-    const dir = path.join(base, relPath);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'SKILL.md'), `---\n${frontmatter}\n---\n\n# Skill`);
-    if (withScript) {
-      const scriptsDir = path.join(dir, 'scripts');
-      fs.mkdirSync(scriptsDir, { recursive: true });
-      fs.writeFileSync(path.join(scriptsDir, 'run.js'), '// noop');
-    }
-  }
-
-  test('为 user-invocable skill 生成 codex prompts', () => {
-    const skillsSrc = path.join(tmpDir, 'skills');
-    fs.mkdirSync(skillsSrc, { recursive: true });
-    makeSkillDir(
-      skillsSrc,
-      'tools/gen-docs',
-      'name: gen-docs\ndescription: gen docs\nuser-invocable: true\nargument-hint: <path>',
-      true
-    );
-    makeSkillDir(
-      skillsSrc,
-      'domains/frontend-design',
-      'name: frontend-design\ndescription: design\nuser-invocable: true',
-      false
-    );
-
-    const count = installGeneratedPrompts(skillsSrc, targetDir, backupDir, manifest);
-
-    expect(count).toBe(2);
-    expect(fs.existsSync(path.join(targetDir, 'prompts', 'gen-docs.md'))).toBe(true);
-    expect(fs.existsSync(path.join(targetDir, 'prompts', 'frontend-design.md'))).toBe(true);
-
-    const scriptPrompt = fs.readFileSync(path.join(targetDir, 'prompts', 'gen-docs.md'), 'utf8');
-    expect(scriptPrompt).toContain('node ~/.codex/skills/run_skill.js gen-docs $ARGUMENTS');
-
-    const docPrompt = fs.readFileSync(path.join(targetDir, 'prompts', 'frontend-design.md'), 'utf8');
-    expect(docPrompt).toContain('Use that skill as the authoritative playbook for the task.');
-    expect(docPrompt).not.toContain('run_skill.js');
   });
 });
 
@@ -351,28 +260,22 @@ describe('斜杠命令回归防护', () => {
     });
   });
 
-  describeIf('双端生成集合一致性', () => {
-    test('Claude commands 与 Codex prompts 的 skill 集合一致', () => {
-      const invocableSkills = scanInvocableSkills(realSkillsDir);
-      const commandNames = invocableSkills.map(skill => {
-        const content = generateCommandContent(skill.meta, skill.relPath, skill.runtimeType);
-        expect(content).toContain(`~/.claude/skills/${skill.relPath}/SKILL.md`);
-        return skill.name;
-      }).sort();
+  describeIf('Codex skill metadata 路径一致性', () => {
+    test('openai.yaml 默认提示词指向 ~/.agents/skills', () => {
+      const metadataFiles = [
+        'tools/gen-docs/agents/openai.yaml',
+        'tools/verify-security/agents/openai.yaml',
+        'tools/verify-module/agents/openai.yaml',
+        'tools/verify-change/agents/openai.yaml',
+        'tools/verify-quality/agents/openai.yaml',
+        'domains/frontend-design/agents/openai.yaml',
+      ];
 
-      const promptNames = invocableSkills.map(skill => {
-        const content = generatePromptContent(skill.meta, skill.relPath, skill.runtimeType);
-        expect(content).toContain(`~/.codex/skills/${skill.relPath}/SKILL.md`);
-        return skill.name;
-      }).sort();
-
-      expect(promptNames).toEqual(commandNames);
-      expect(commandNames).toEqual(expect.arrayContaining([
-        'gen-docs',
-        'verify-security',
-        'verify-change',
-        'verify-quality',
-      ]));
+      metadataFiles.forEach((relPath) => {
+        const content = fs.readFileSync(path.join(realSkillsDir, relPath), 'utf8');
+        expect(content).toContain('~/.agents/skills/');
+        expect(content).not.toContain('~/.codex/skills/');
+      });
     });
   });
 
