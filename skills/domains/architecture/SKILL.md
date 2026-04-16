@@ -29,6 +29,16 @@ disable-model-invocation: false
 | API 风格 | REST | GraphQL | 资源型 CRUD→REST；复杂聚合/前端驱动→GraphQL |
 | 事件架构 | 事件通知 | 事件溯源(ES) | 简单解耦→通知；审计/回溯→ES+CQRS |
 
+## 建模方法论选择
+
+| 问题域 | 优先方法 | 适用场景 |
+|--------|----------|----------|
+| 业务怎么运转 | BPMN / Service Blueprint / Event Storming | 流程梳理、服务设计、领域发现 |
+| 系统怎么实现 | UML / C4 Model | 类图、序列图、组件图、部署图 |
+| 业务+系统+技术一张蓝图 | ArchiMate | 战略→业务→应用→技术全局贯通 |
+
+**铁律**：先定问题域，再选建模语言。混用必乱，贯通用 ArchiMate。
+
 ## 原则
 
 ```
