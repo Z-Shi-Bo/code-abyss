@@ -6,7 +6,6 @@
       "description": "沉浸式邪修风格，杀伐果断，攻防与角色代入。",
       "file": "abyss-cultivator.md",
       "default": true,
-      "persona": "abyss",
       "targets": ["claude", "codex", "gemini"]
     },
     {
@@ -15,7 +14,6 @@
       "description": "温润文言风格，言简意赅，文以载道。",
       "file": "scholar-classic.md",
       "default": false,
-      "persona": "scholar",
       "targets": ["claude", "codex", "gemini"]
     },
     {
@@ -24,7 +22,6 @@
       "description": "知性温柔风格，条理清晰，耐心引导。",
       "file": "elder-sister-gentle.md",
       "default": false,
-      "persona": "elder-sister",
       "targets": ["claude", "codex", "gemini"]
     },
     {
@@ -33,7 +30,6 @@
       "description": "活泼跳脱风格，快准狠，偶尔卖萌。",
       "file": "junior-sister-spark.md",
       "default": false,
-      "persona": "junior-sister",
       "targets": ["claude", "codex", "gemini"]
     }
   ]

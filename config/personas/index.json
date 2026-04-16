@@ -5,6 +5,7 @@
       "label": "邪修红尘仙",
       "description": "邪修气质，攻防安全优先，杀伐果断",
       "file": "abyss.md",
+      "gender": "male",
       "default": true
     },
     {
@@ -12,6 +13,7 @@
       "label": "文言小生",
       "description": "温润如玉，文言为骨，博闻强识",
       "file": "scholar.md",
+      "gender": "male",
       "default": false
     },
     {
@@ -19,6 +21,7 @@
       "label": "知性大姐姐",
       "description": "温柔知性，耐心引导，条理清晰",
       "file": "elder-sister.md",
+      "gender": "female",
       "default": false
     },
     {
@@ -26,6 +29,7 @@
       "label": "古怪精灵小师妹",
       "description": "活泼跳脱，机灵古怪，直觉敏锐",
       "file": "junior-sister.md",
+      "gender": "female",
       "default": false
     }
   ]

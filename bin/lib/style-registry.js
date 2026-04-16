@@ -123,7 +123,6 @@ function normalizeStyle(style, seen) {
     description,
     file,
     targets,
-    persona: typeof style.persona === 'string' ? style.persona.trim() : null,
     default: style.default === true,
   };
 }
@@ -170,34 +169,34 @@ function readStyleContent(projectRoot, style) {
   return fs.readFileSync(stylePath, 'utf8');
 }
 
-function renderRuntimeGuidance(projectRoot, styleSlug, targetName = 'codex') {
+function renderRuntimeGuidance(projectRoot, styleSlug, targetName = 'codex', personaSlug = null) {
   const style = resolveStyle(projectRoot, styleSlug, targetName === 'gemini' ? 'claude' : targetName);
   if (!style) {
     throw new Error(`未知输出风格: ${styleSlug}. Try: node bin/install.js --list-styles`);
   }
 
   let base;
-  if (style.persona) {
-    const persona = resolvePersona(projectRoot, style.persona);
+  if (personaSlug) {
+    const persona = resolvePersona(projectRoot, personaSlug);
     if (persona) {
       base = readPersonaContent(projectRoot, persona).replace(/\s+$/, '');
     }
   }
   if (!base) {
-    const basePath = path.join(projectRoot, 'config', 'CLAUDE.md');
-    base = fs.readFileSync(basePath, 'utf8').replace(/\s+$/, '');
+    const defaultPersona = getDefaultPersona(projectRoot);
+    base = readPersonaContent(projectRoot, defaultPersona).replace(/\s+$/, '');
   }
 
   const styleContent = readStyleContent(projectRoot, style).replace(/^\s+/, '');
   return `${base}\n\n${styleContent}\n`;
 }
 
-function renderCodexAgents(projectRoot, styleSlug) {
-  return renderRuntimeGuidance(projectRoot, styleSlug, 'codex');
+function renderCodexAgents(projectRoot, styleSlug, personaSlug = null) {
+  return renderRuntimeGuidance(projectRoot, styleSlug, 'codex', personaSlug);
 }
 
-function renderGeminiContext(projectRoot, styleSlug) {
-  return renderRuntimeGuidance(projectRoot, styleSlug, 'gemini');
+function renderGeminiContext(projectRoot, styleSlug, personaSlug = null) {
+  return renderRuntimeGuidance(projectRoot, styleSlug, 'gemini', personaSlug);
 }
 
 module.exports = {

@@ -33,31 +33,25 @@ describe('style registry', () => {
     expect(style).toMatchObject({
       slug: 'scholar-classic',
       label: '墨渊书阁',
-      persona: 'scholar',
     });
   });
 
   test('为 Codex 动态生成 AGENTS', () => {
-    const content = renderCodexAgents(projectRoot, 'abyss-cultivator');
+    const content = renderCodexAgents(projectRoot, 'abyss-cultivator', 'abyss');
     expect(content).toContain('# 邪修红尘仙 · 宿命深渊 v4.2');
     expect(content).toContain('# 宿命深渊 · 输出之道');
   });
 
   test('为 Gemini 动态生成 GEMINI context', () => {
-    const content = renderGeminiContext(projectRoot, 'scholar-classic');
+    const content = renderGeminiContext(projectRoot, 'scholar-classic', 'scholar');
     expect(content).toContain('# 文言小生 · 墨渊书阁 v1.0');
     expect(content).toContain('# 墨渊书阁 · 输出之道');
   });
 
-  test('所有风格的 persona 字段有效', () => {
-    const styles = listStyles(projectRoot);
-    const personas = listPersonas(projectRoot);
-    const personaSlugs = new Set(personas.map(p => p.slug));
-    styles.forEach(style => {
-      if (style.persona) {
-        expect(personaSlugs.has(style.persona)).toBe(true);
-      }
-    });
+  test('心口分离：任意人格 × 任意风格自由组合', () => {
+    const content = renderGeminiContext(projectRoot, 'abyss-cultivator', 'elder-sister');
+    expect(content).toContain('# 知性大姐姐 · 星霜雅筑 v1.0');
+    expect(content).toContain('# 宿命深渊 · 输出之道');
   });
 
   test('所有 runtime guidance 保持在预算内', () => {
