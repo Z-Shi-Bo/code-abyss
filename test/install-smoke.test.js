@@ -91,47 +91,44 @@ describe('codex install smoke', () => {
     });
   }
 
-  test('安装 Codex 时生成 skills（含 agents/openai.yaml）且不写 settings.json', () => {
+  test('安装 Codex 时生成 AGENTS.md + skills 且不写 settings.json', () => {
     const result = runInstall(['--target', 'codex', '-y']);
     const codexDir = path.join(tmpHome, '.codex');
-    const agentsDir = path.join(tmpHome, '.agents');
     const codexConfig = fs.readFileSync(path.join(codexDir, 'config.toml'), 'utf8');
 
     expect(result.status).toBe(0);
-    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
-    expect(fs.existsSync(path.join(agentsDir, 'skills'))).toBe(true);
-    expect(fs.existsSync(path.join(agentsDir, 'bin', 'lib'))).toBe(true);
-    expect(fs.existsSync(path.join(agentsDir, 'skills', 'gstack', 'review', 'SKILL.md'))).toBe(true);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
+    expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(true);
+    expect(fs.existsSync(path.join(codexDir, 'bin', 'lib'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'config.toml'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'instruction.md'))).toBe(true);
     expect(codexConfig).toContain('model_instructions_file = "./instruction.md"');
     expect(fs.existsSync(path.join(codexDir, 'settings.json'))).toBe(false);
-    // Codex 0.117.0+ 已移除 custom prompts，不再生成 prompts/
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
+    const agentsMd = fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8');
+    expect(agentsMd).toContain('宿命深渊');
   });
 
-  test('安装 Codex 时会清理旧 AGENTS.md 与 prompts 残留', () => {
+  test('安装 Codex 时会清理旧 prompts 残留', () => {
     const codexDir = path.join(tmpHome, '.codex');
     fs.mkdirSync(path.join(codexDir, 'prompts'), { recursive: true });
-    fs.writeFileSync(path.join(codexDir, 'AGENTS.md'), '# legacy\n');
     fs.writeFileSync(path.join(codexDir, 'prompts', 'old.md'), 'legacy\n');
 
     const result = runInstall(['--target', 'codex', '-y']);
 
     expect(result.status).toBe(0);
-    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
-    expect(result.stdout).toContain('移除 legacy AGENTS.md');
     expect(result.stdout).toContain('移除 legacy prompts/');
   });
 
-  test('安装 Codex 时忽略 --style，不再生成 AGENTS.md', () => {
+  test('安装 Codex 时支持 --style 切换风格', () => {
     const result = runInstall(['--target', 'codex', '--style', 'scholar-classic', '-y']);
     const codexDir = path.join(tmpHome, '.codex');
 
     expect(result.status).toBe(0);
-    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
-    expect(result.stdout).toContain('忽略 --style');
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
+    const agentsMd = fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8');
+    expect(agentsMd).toContain('墨渊书阁');
   });
 
   test('安装 Codex 时会迁移旧 settings.json，卸载后恢复', () => {
@@ -140,17 +137,16 @@ describe('codex install smoke', () => {
     fs.writeFileSync(path.join(codexDir, 'settings.json'), '{"legacy":true}\n');
 
     const install = runInstall(['--target', 'codex', '-y']);
-    const agentsDir = path.join(tmpHome, '.agents');
 
     expect(install.status).toBe(0);
     expect(fs.existsSync(path.join(codexDir, 'settings.json'))).toBe(false);
     expect(install.stdout).toContain('移除 legacy settings.json');
-    expect(fs.existsSync(path.join(agentsDir, 'skills'))).toBe(true);
+    expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(true);
 
     const uninstall = runInstall(['--uninstall', 'codex']);
     expect(uninstall.status).toBe(0);
     expect(fs.readFileSync(path.join(codexDir, 'settings.json'), 'utf8')).toContain('legacy');
-    expect(fs.existsSync(path.join(agentsDir, 'skills'))).toBe(false);
+    expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(false);
   });
 });
 

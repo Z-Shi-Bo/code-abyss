@@ -62,8 +62,8 @@ describe('pack registry', () => {
 
     expect(getPackHostFiles(projectRoot, 'abyss', 'codex')).toEqual([
       { src: 'config/instruction.md', dest: 'instruction.md', root: 'codex' },
-      { src: 'skills', dest: 'skills', root: 'agents' },
-      { src: 'bin/lib', dest: 'bin/lib', root: 'agents' },
+      { src: 'skills', dest: 'skills', root: 'codex' },
+      { src: 'bin/lib', dest: 'bin/lib', root: 'codex' },
     ]);
   });
 

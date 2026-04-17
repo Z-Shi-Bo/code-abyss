@@ -42,6 +42,7 @@ const {
   getDefaultPersona,
   resolvePersona,
   readPersonaContent,
+  renderCodexAgents,
   renderGeminiContext,
 } = require(path.join(__dirname, 'lib', 'style-registry.js'));
 const { detectCcstatusline, installCcstatusline } = require(path.join(__dirname, 'lib', 'ccstatusline.js'));
@@ -589,15 +590,8 @@ async function resolveInstallPersona() {
 }
 
 async function resolveInstallStyle(targetName) {
-  if (targetName === 'codex') {
-    if (requestedStyleSlug) {
-      warn('Codex 已改为 skills-only，忽略 --style（不再生成 ~/.codex/AGENTS.md）');
-    }
-    return getDefaultStyle(PKG_ROOT, 'claude');
-  }
-
   if (requestedStyleSlug) {
-    const style = resolveStyle(PKG_ROOT, requestedStyleSlug, targetName === 'gemini' ? 'claude' : targetName)
+    const style = resolveStyle(PKG_ROOT, requestedStyleSlug, targetName === 'gemini' || targetName === 'codex' ? 'claude' : targetName)
       || resolveStyle(PKG_ROOT, requestedStyleSlug, 'claude');
     if (!style) throw new Error(`未知输出风格: ${requestedStyleSlug}`);
     return style;
@@ -837,6 +831,12 @@ function installCore(tgt, selectedStyle, selectedPersona, packPlan) {
       const guidance = renderGeminiContext(PKG_ROOT, selectedStyle.slug, selectedPersona.slug);
       fs.writeFileSync(geminiMdPath, guidance);
       ok(`人格（心）→ ${c.mag(selectedPersona.label)} (${selectedPersona.slug})`);
+    } else if (tgt === 'codex') {
+      const agentsMdPath = path.join(targetDir, 'AGENTS.md');
+      const guidance = renderCodexAgents(PKG_ROOT, selectedStyle.slug, selectedPersona.slug);
+      fs.writeFileSync(agentsMdPath, guidance);
+      ok(`人格（心）→ ${c.mag(selectedPersona.label)} (${selectedPersona.slug})`);
+      ok(`风格（口）→ ${c.mag(selectedStyle.label)} → ~/.codex/AGENTS.md`);
     }
   }
 
