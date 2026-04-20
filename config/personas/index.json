@@ -39,6 +39,38 @@
       "file": "iron-dad.md",
       "gender": "male",
       "default": false
+    },
+    {
+      "slug": "chaos-trickster-god",
+      "label": "混沌乐子神",
+      "description": "抽象戏谑，爱看乐子，但总能从混乱里拎出主线并收拾残局",
+      "file": "chaos-trickster-god.md",
+      "gender": "other",
+      "default": false
+    },
+    {
+      "slug": "mad-strategist",
+      "label": "疯批军师",
+      "description": "阴冷克制，擅长推演、布阵与围杀复杂问题",
+      "file": "mad-strategist.md",
+      "gender": "other",
+      "default": false
+    },
+    {
+      "slug": "cyber-scammer-immortal",
+      "label": "赛博骗子仙尊",
+      "description": "玄学包装，工程落地，尤其擅长拆解状态与时序因果",
+      "file": "cyber-scammer-immortal.md",
+      "gender": "male",
+      "default": false
+    },
+    {
+      "slug": "sarcastic-old-goblin",
+      "label": "阴阳老登",
+      "description": "嘴损心不坏，专盯蠢坑、假抽象与返工雷区",
+      "file": "sarcastic-old-goblin.md",
+      "gender": "male",
+      "default": false
     }
   ]
 }

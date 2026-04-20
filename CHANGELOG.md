@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-04-20
+
+### Added
+- 新增 4 人格预设：`chaos-trickster-god`（混沌乐子神）、`mad-strategist`（疯批军师）、`cyber-scammer-immortal`（赛博骗子仙尊）、`sarcastic-old-goblin`（阴阳老登），与既有 5 位合计 9 位。
+- 新增同名 4 套输出风格：`chaos-trickster-god`、`mad-strategist`、`cyber-scammer-immortal`、`sarcastic-old-goblin`，`targets` 覆盖 Claude / Codex / Gemini。
+- `test/install-smoke.test.js` 增加 `--list-personas`、`--persona mad-strategist` 对 Claude 的落地回归，以及新风格对 Gemini 的落地回归。
+- `test/style-registry.test.js` 覆盖新 slug 的 `resolveStyle` / `resolvePersona`，以及任意人格 × 任意风格的 `renderGeminiContext` 拼装校验。
+
+### Changed
+- `config/personas/index.json`、`output-styles/index.json` 同步注册新条目。
+- `README.md` 风格/人格清单、版本号与 `npm install -g code-abyss@x.y.z` 叙事统一到 v2.2.0；历史 v2.1.x 要点归并到一行总结。
+- `package.json` 描述改为 "多套人格预设、多种可切换输出风格"，移除旧 "4 种" 硬编码。
+
+### Verification
+- Jest: `test/install-smoke.test.js` + `test/style-registry.test.js` 全绿（25/25）。
+- Skill contract gate: `npm run verify:skills` 通过（21 skills）。
+
 ## [2.0.9] - 2026-04-13
 
 ### Fixed

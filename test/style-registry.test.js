@@ -19,8 +19,26 @@ describe('style registry', () => {
   test('列出所有可用风格', () => {
     const styles = listStyles(projectRoot);
     expect(styles.map(style => style.slug)).toEqual(
-      expect.arrayContaining(['abyss-cultivator', 'scholar-classic', 'elder-sister-gentle', 'junior-sister-spark'])
+      expect.arrayContaining([
+        'abyss-cultivator',
+        'scholar-classic',
+        'elder-sister-gentle',
+        'junior-sister-spark',
+        'iron-dad-warm',
+        'chaos-trickster-god',
+        'mad-strategist',
+        'cyber-scammer-immortal',
+        'sarcastic-old-goblin',
+      ])
     );
+  });
+
+  test('按新 slug 解析风格', () => {
+    const style = resolveStyle(projectRoot, 'mad-strategist', 'claude');
+    expect(style).toMatchObject({
+      slug: 'mad-strategist',
+      label: '疯批军师',
+    });
   });
 
   test('读取默认风格', () => {
@@ -69,13 +87,37 @@ describe('persona registry', () => {
   test('列出所有人格预设', () => {
     const personas = listPersonas(projectRoot);
     expect(personas.map(p => p.slug)).toEqual(
-      expect.arrayContaining(['abyss', 'scholar', 'elder-sister', 'junior-sister'])
+      expect.arrayContaining([
+        'abyss',
+        'scholar',
+        'elder-sister',
+        'junior-sister',
+        'iron-dad',
+        'chaos-trickster-god',
+        'mad-strategist',
+        'cyber-scammer-immortal',
+        'sarcastic-old-goblin',
+      ])
     );
   });
 
   test('读取默认人格', () => {
     const persona = getDefaultPersona(projectRoot);
     expect(persona.slug).toBe('abyss');
+  });
+
+  test('按 slug 解析新人格', () => {
+    const persona = resolvePersona(projectRoot, 'mad-strategist');
+    expect(persona).toMatchObject({
+      slug: 'mad-strategist',
+      label: '疯批军师',
+    });
+  });
+
+  test('新人格可以与任意风格拼接', () => {
+    const content = renderGeminiContext(projectRoot, 'sarcastic-old-goblin', 'cyber-scammer-immortal');
+    expect(content).toContain('# 赛博骗子仙尊 · 玄网法坛 v1.0');
+    expect(content).toContain('# 阴阳老登 · 输出之道');
   });
 
   test('按 slug 解析人格', () => {

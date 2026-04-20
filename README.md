@@ -4,7 +4,7 @@
 
 **邪修红尘仙 · 宿命深渊**
 
-*为 Claude Code / Codex CLI / Gemini CLI 注入邪修人格、4种可切换输出风格与工程化技能体系*
+*为 Claude Code / Codex CLI / Gemini CLI 注入邪修人格、可切换输出风格、人格预设与工程化技能体系*
 
 [![npm](https://img.shields.io/npm/v/code-abyss.svg)](https://www.npmjs.com/package/code-abyss)
 [![CI](https://github.com/telagod/code-abyss/actions/workflows/ci.yml/badge.svg)](https://github.com/telagod/code-abyss/actions/workflows/ci.yml)
@@ -18,27 +18,26 @@
 
 ## 🚀 安装
 
-当前 npm 最新版：`2.0.8`
+当前 npm 最新版：`2.2.0`
 
-### v2.0.8 新特性
+### v2.2.0 新特性
 
-- `target-registry` 收束宿主常量：Claude / Codex / Gemini 的 target 与安装根改为单一真相源，后续扩宿主不再散改多处硬编码
-- runtime guidance 进一步瘦身：默认内核与 4 个输出风格重新压缩，并用测试门禁限制各风格体积
-- Gemini 文档与 pack 叙事补齐：README 现在完整覆盖 Gemini host、dynamic `GEMINI.md`、Gemini smoke 与 pack 映射
-- Windows CI 修复：gstack frontmatter 解析现已兼容 `CRLF`，Windows 下 Claude / Codex / Gemini smoke 全绿
-- Codex 自定义说明文件：安装器会同步 `instruction.md` 到 `~/.codex/`，并在 `config.toml` 写入 `model_instructions_file = "./instruction.md"`
-- 仓库分支已收束：历史 automation 分支内容已并回 `main`，当前 npm 包面向单主线发布
+- 人格池扩容：新增 `chaos-trickster-god`（混沌乐子神）、`mad-strategist`（疯批军师）、`cyber-scammer-immortal`（赛博骗子仙尊）、`sarcastic-old-goblin`（阴阳老登）四位个性预设，与既有 5 位合计 9 人格
+- 输出风格扩容：同步上线 `chaos-trickster-god`、`mad-strategist`、`cyber-scammer-immortal`、`sarcastic-old-goblin` 四套对应风格骨架，三端 `targets` 全覆盖
+- 人格 × 风格可自由组合：Claude/Codex/Gemini 三端均支持 `--persona <slug>` 与 `--style <slug>` 任意拼装
+- README 与 `--list-personas`、`--list-styles` 列表对齐新索引；`test/install-smoke.test.js`、`test/style-registry.test.js` 增加新预设回归覆盖
+- 历史累计变更（v2.1.x）：`elder-sister` 人设重写、`scholar / junior-sister / iron-dad` 升级 v2.0、Codex 通过 `AGENTS.md` 统一装配 persona + style
 
 ```bash
 npx code-abyss
 npx code-abyss --list-styles
-npm install -g code-abyss@2.0.8
+npm install -g code-abyss@2.2.0
 ```
 
 交互式菜单（方向键选择，回车确认）：
 
 ```
-☠️ Code Abyss v2.0.8
+☠️ Code Abyss v2.2.0
 
 ? 请选择操作 (Use arrow keys)
 ❯ 安装到 Claude Code (~/.claude/)
@@ -53,12 +52,15 @@ npm install -g code-abyss@2.0.8
 npx code-abyss --target claude    # 安装到 ~/.claude/
 npx code-abyss --target codex     # 安装到 ~/.codex/
 npx code-abyss --target gemini    # 安装到 ~/.gemini/
-npx code-abyss --style abyss-concise --target claude
-npx code-abyss --style abyss-concise --target codex
+npx code-abyss --style scholar-classic --target claude
+npx code-abyss --style sarcastic-old-goblin --target codex
+npx code-abyss --persona mad-strategist --target claude
+npx code-abyss --persona sarcastic-old-goblin --target gemini
 npx code-abyss --target claude -y  # 零配置一键安装 (自动合并推荐配置)
 npx code-abyss --target codex -y   # 零配置一键安装 (自动写入 config.toml 模板)
 npx code-abyss --target gemini -y  # 零配置一键安装 (自动生成 GEMINI.md + TOML commands)
 npx code-abyss --list-styles       # 列出可用输出风格
+npx code-abyss --list-personas     # 列出可用人格预设
 npx code-abyss --uninstall claude  # 卸载 Claude Code
 npx code-abyss --uninstall codex   # 卸载 Codex CLI
 npx code-abyss --uninstall gemini  # 卸载 Gemini CLI
@@ -97,25 +99,44 @@ npx code-abyss --uninstall gemini  # 卸载 Gemini CLI
 
 ### 输出风格
 
-当前内置风格：
+当前内置风格（以 `--list-styles` 或 `output-styles/index.json` 为准）：
 
 - `abyss-cultivator`：默认风格，沉浸式邪修表达，情绪张力更强
-- `abyss-concise`：冷刃简报，保留角色设定，但表达更克制、更偏工程交付
-- `abyss-command`：铁律军令，命令式、压缩式输出，适合发布/故障/修复
-- `abyss-ritual`：祭仪长卷，仪式感更强，适合长任务、战报与迁移总结
+- `scholar-classic`：温润文言，克制清朗
+- `elder-sister-gentle`：知性温柔，耐心引导
+- `junior-sister-spark`：活泼跳脱，节奏轻快
+- `iron-dad-warm`：稳厚可靠，像带队兜底
+- `chaos-trickster-god`：混沌戏谑，嘴上搞事，手上给准方案
+- `mad-strategist`：阴冷算计，擅长拆局、布阵与围杀复杂问题
+- `cyber-scammer-immortal`：江湖忽悠腔，玄学包装，但落点仍准
+- `sarcastic-old-goblin`：毒舌老油条，嘴损心不坏，专盯蠢坑
 
-若更在意上下文与 token 消耗，优先选 `abyss-concise` 或 `abyss-command`。当前运行时 guidance 已做轻量化压缩，并有测试限制各风格体积，避免后续版本再次膨胀。
-
-Claude 安装时会把所选 slug 写入 `settings.json.outputStyle`；若当前仓库声明了 project packs，则自动同步对应 runtime + commands。Codex 走 `skills-only`，根据项目 `packs.lock` 自动附带对应 pack，不再写运行时 `~/.codex/AGENTS.md`，并会同步 `instruction.md` 与 `model_instructions_file`。Gemini 作为第三宿主，安装到 `~/.gemini/`，生成 `GEMINI.md`、`settings.json`、`commands/*.toml` 与 `skills/`；若项目声明了 `gstack`，也会同步安装 `~/.gemini/skills/gstack/` 与对应 TOML commands。
+三端安装都支持 `--style <slug>` 与 `--persona <slug>`。Claude 会把所选 style 写入 `settings.json.outputStyle`，并把所选 persona 写入 `CLAUDE.md`；Codex / Gemini 会把 persona + style 动态拼装进运行时 `AGENTS.md` / `GEMINI.md`。若当前仓库声明了 project packs，则自动同步对应 runtime + commands。
 
 当前 runtime kernel 已进一步瘦身：默认 `GEMINI.md` / 动态 guidance 体积控制在约 `1.45KB~1.65KB`，并通过 Jest 预算门禁限制各风格体积，避免后续版本再次膨胀。
 
-### 多风格切换
+### 人格预设
 
-- Claude / Gemini：重新执行安装命令并带上 `--style <slug>`，即可切换为目标风格
-- 例：`npx code-abyss --target claude --style abyss-concise -y`
-- 例：`npx code-abyss --target gemini --style abyss-ritual -y`
-- Codex：当前为 `skills-only` 运行形态，`--style` 会被显式忽略
+人格预设负责“心”，输出风格负责“口”；两者可自由组合。
+
+当前内置人格（以 `--list-personas` 或 `config/personas/index.json` 为准）：
+
+- `abyss`
+- `scholar`
+- `elder-sister`
+- `junior-sister`
+- `iron-dad`
+- `chaos-trickster-god`
+- `mad-strategist`
+- `cyber-scammer-immortal`
+- `sarcastic-old-goblin`
+
+### 风格 / 人格切换
+
+- Claude / Codex / Gemini：重新执行安装命令并带上 `--style <slug>`、`--persona <slug>`，即可切换组合
+- 例：`npx code-abyss --target claude --style scholar-classic --persona scholar -y`
+- 例：`npx code-abyss --target codex --style sarcastic-old-goblin --persona cyber-scammer-immortal -y`
+- 例：`npx code-abyss --target gemini --style mad-strategist --persona chaos-trickster-god -y`
 
 ---
 
@@ -124,6 +145,7 @@ Claude 安装时会把所选 slug 写入 `settings.json.outputStyle`；若当前
 ```bash
 npx code-abyss --uninstall claude   # 卸载 Claude Code
 npx code-abyss --uninstall codex    # 卸载 Codex CLI
+npx code-abyss --uninstall gemini   # 卸载 Gemini CLI
 ```
 
 也可以用备用脚本：

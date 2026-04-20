@@ -53,3 +53,7 @@ node_modules/
 .ace-tool/
 .code-abyss/reports/
 .npmrc
+
+# Local tooling state (Claude Code / OMC)
+.claude/
+.omc/

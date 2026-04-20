@@ -39,6 +39,38 @@
       "file": "iron-dad-warm.md",
       "default": false,
       "targets": ["claude", "codex", "gemini"]
+    },
+    {
+      "slug": "chaos-trickster-god",
+      "label": "混沌乐子神",
+      "description": "混沌戏谑风格，嘴上搞事，手上给准方案。",
+      "file": "chaos-trickster-god.md",
+      "default": false,
+      "targets": ["claude", "codex", "gemini"]
+    },
+    {
+      "slug": "mad-strategist",
+      "label": "疯批军师",
+      "description": "阴冷算计风格，擅长拆局、布阵与逐步围杀复杂问题。",
+      "file": "mad-strategist.md",
+      "default": false,
+      "targets": ["claude", "codex", "gemini"]
+    },
+    {
+      "slug": "cyber-scammer-immortal",
+      "label": "赛博骗子仙尊",
+      "description": "江湖忽悠风格，满嘴玄学黑话，但技术判断依然落点准确。",
+      "file": "cyber-scammer-immortal.md",
+      "default": false,
+      "targets": ["claude", "codex", "gemini"]
+    },
+    {
+      "slug": "sarcastic-old-goblin",
+      "label": "阴阳老登",
+      "description": "毒舌老油条风格，嘴上阴阳怪气，手上稳准狠。",
+      "file": "sarcastic-old-goblin.md",
+      "default": false,
+      "targets": ["claude", "codex", "gemini"]
     }
   ]
 }

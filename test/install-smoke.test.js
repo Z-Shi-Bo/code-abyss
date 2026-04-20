@@ -16,6 +16,24 @@ describe('install cli styles', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('abyss-cultivator');
     expect(result.stdout).toContain('scholar-classic');
+    expect(result.stdout).toContain('chaos-trickster-god');
+    expect(result.stdout).toContain('mad-strategist');
+    expect(result.stdout).toContain('cyber-scammer-immortal');
+    expect(result.stdout).toContain('sarcastic-old-goblin');
+  });
+
+  test('--list-personas 列出可用人格', () => {
+    const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'install.js'), '--list-personas'], {
+      cwd: path.join(__dirname, '..'),
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('abyss');
+    expect(result.stdout).toContain('chaos-trickster-god');
+    expect(result.stdout).toContain('mad-strategist');
+    expect(result.stdout).toContain('cyber-scammer-immortal');
+    expect(result.stdout).toContain('sarcastic-old-goblin');
   });
 });
 
@@ -56,6 +74,15 @@ describe('claude install smoke', () => {
     expect(fs.existsSync(path.join(claudeDir, 'skills', 'gstack', 'review', 'SKILL.md'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, '.sage-uninstall.js'))).toBe(true);
+  });
+
+  test('安装 Claude 时支持 --persona 切换人格', () => {
+    const result = runInstall(['--target', 'claude', '--persona', 'mad-strategist', '-y']);
+    const claudeDir = path.join(tmpHome, '.claude');
+    const content = fs.readFileSync(path.join(claudeDir, 'CLAUDE.md'), 'utf8');
+
+    expect(result.status).toBe(0);
+    expect(content).toContain('# 疯批军师 · 黑棋诡帐 v1.0');
   });
 
   test('安装 Claude 时支持 --style 切换 outputStyle', () => {
@@ -199,5 +226,14 @@ describe('gemini install smoke', () => {
 
     expect(result.status).toBe(0);
     expect(content).toContain('# 墨渊书阁 · 输出之道');
+  });
+
+  test('安装 Gemini 时支持新的搞怪风格', () => {
+    const result = runInstall(['--target', 'gemini', '--style', 'mad-strategist', '-y']);
+    const geminiDir = path.join(tmpHome, '.gemini');
+    const content = fs.readFileSync(path.join(geminiDir, 'GEMINI.md'), 'utf8');
+
+    expect(result.status).toBe(0);
+    expect(content).toContain('# 疯批军师 · 输出之道');
   });
 });
