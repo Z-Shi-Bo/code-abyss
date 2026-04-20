@@ -231,6 +231,17 @@ function runUninstall(tgt) {
     });
   }
 
+  const dirsToPrune = new Set();
+  const pruneRoots = new Set();
+  const trackParents = (filePath, installRoot) => {
+    pruneRoots.add(installRoot);
+    let dir = path.dirname(filePath);
+    while (dir.startsWith(installRoot) && dir !== installRoot) {
+      dirsToPrune.add(dir);
+      dir = path.dirname(dir);
+    }
+  };
+
   (manifest.installed || []).forEach((entry) => {
     const normalized = normalizeManifestEntry(entry, tgt);
     const installRoot = resolveManagedRootDir(tgt, normalized.root);
@@ -238,6 +249,7 @@ function runUninstall(tgt) {
     if (fs.existsSync(targetPath)) {
       rmSafe(targetPath);
       console.log(`  ${c.red('✘')} ${manifestLabel(entry, tgt)}`);
+      trackParents(targetPath, installRoot);
     }
   });
   (manifest.backups || []).forEach((entry) => {
@@ -257,6 +269,23 @@ function runUninstall(tgt) {
   rmSafe(backupDir);
   const us = path.join(targetDir, '.sage-uninstall.js');
   if (fs.existsSync(us)) fs.unlinkSync(us);
+
+  [...dirsToPrune]
+    .sort((a, b) => b.length - a.length)
+    .forEach((dir) => {
+      try {
+        if (fs.existsSync(dir) && fs.readdirSync(dir).length === 0) {
+          fs.rmdirSync(dir);
+        }
+      } catch (_) { /* ignore non-empty or in-use dirs */ }
+    });
+  pruneRoots.forEach((root) => {
+    try {
+      if (fs.existsSync(root) && fs.readdirSync(root).length === 0 && root !== targetDir) {
+        fs.rmdirSync(root);
+      }
+    } catch (_) { /* ignore */ }
+  });
   console.log('');
   ok(c.b('卸载完成\n'));
 }

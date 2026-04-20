@@ -85,6 +85,21 @@ describe('claude install smoke', () => {
     expect(content).toContain('# 疯批军师 · 黑棋诡帐 v1.0');
   });
 
+  test('卸载 Claude 后清理空的子目录（commands / bin）', () => {
+    const installResult = runInstall(['--target', 'claude', '-y']);
+    expect(installResult.status).toBe(0);
+
+    const claudeDir = path.join(tmpHome, '.claude');
+    expect(fs.existsSync(path.join(claudeDir, 'commands'))).toBe(true);
+    expect(fs.existsSync(path.join(claudeDir, 'bin'))).toBe(true);
+
+    const uninstall = runInstall(['--uninstall', 'claude']);
+    expect(uninstall.status).toBe(0);
+    expect(fs.existsSync(path.join(claudeDir, 'commands'))).toBe(false);
+    expect(fs.existsSync(path.join(claudeDir, 'bin'))).toBe(false);
+    expect(fs.existsSync(path.join(claudeDir, 'skills'))).toBe(false);
+  });
+
   test('安装 Claude 时支持 --style 切换 outputStyle', () => {
     const result = runInstall(['--target', 'claude', '--style', 'scholar-classic', '-y']);
     const claudeDir = path.join(tmpHome, '.claude');
